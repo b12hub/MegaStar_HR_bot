@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
+from typing import Optional
 
 from db.database import get_session
 from db.models import Branch, LLMActionType, LLMUsageLog, Vacancy
@@ -187,6 +188,11 @@ async def update_vacancy(
     description: str = Form(...),
     branch_id: int = Form(...),
     is_active: bool = Form(False),
+    generated_hard_skill_q1: str = Form(""),
+    generated_hard_skill_q2: str = Form(""),
+    generated_soft_skill_q1: str = Form(""),
+    generated_soft_skill_q2: str = Form(""),
+    custom_ai_prompt: Optional[str] = Form(None),
     regenerate_ai: bool = Form(False),
     db: Session = Depends(get_session),
 ):
@@ -204,9 +210,12 @@ async def update_vacancy(
             detail=f"Branch with id {branch_id} not found",
         )
 
-    if regenerate_ai:
+    # If AI regeneration requested with a custom prompt, re-run LLM Evaluator
+    if regenerate_ai and custom_ai_prompt and custom_ai_prompt.strip():
         llm_result = await generate_vacancy_questions(
-            title=title, description=description
+            title=title,
+            description=description,
+            custom_prompt=custom_ai_prompt.strip(),
         )
         questions = llm_result.get("questions", {})
         tokens_input = llm_result.get("tokens_input", 0)
@@ -226,7 +235,14 @@ async def update_vacancy(
         vacancy.generated_soft_skill_q1 = questions.get("soft_skill_q1", "")
         vacancy.generated_soft_skill_q2 = questions.get("soft_skill_q2", "")
         vacancy.llm_cost_usd = (vacancy.llm_cost_usd or 0.0) + cost_usd
+    else:
+        # Save manual text overwrites directly
+        vacancy.generated_hard_skill_q1 = generated_hard_skill_q1
+        vacancy.generated_hard_skill_q2 = generated_hard_skill_q2
+        vacancy.generated_soft_skill_q1 = generated_soft_skill_q1
+        vacancy.generated_soft_skill_q2 = generated_soft_skill_q2
 
+    # Update base vacancy parameters
     vacancy.title = title
     vacancy.department = department
     vacancy.description = description
@@ -238,7 +254,6 @@ async def update_vacancy(
     db.refresh(vacancy)
 
     return RedirectResponse(url="/dashboard/hr", status_code=status.HTTP_303_SEE_OTHER)
-
 
 @router.post("/vacancies/{vacancy_id}/delete")
 async def delete_vacancy(
