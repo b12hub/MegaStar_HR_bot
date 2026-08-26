@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MegaStar★ HR Portal - Vakansiyani Tahrirlash</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans antialiased">
+
+    <!-- Header / Navbar -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <!-- Text-based Logo -->
+                <div class="flex items-center">
+                    <span class="text-2xl font-black italic text-black">Mega</span><span class="text-2xl font-black italic text-black">Star</span><span class="text-2xl text-red-600">★</span> <span class="text-lg font-normal text-gray-500 ml-2">HR Portal</span>
+                </div>
+                
+                <!-- Quick Navigation & Status -->
+                <div class="flex items-center space-x-4">
+                    <a href="/dashboard/hr" class="text-sm font-medium text-gray-600 hover:text-red-600 transition flex items-center">
+                        ← Bekor qilish
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        <!-- Navigation & Actions Bar -->
+        <div class="flex items-center justify-between">
+            <a href="/dashboard/hr" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-black transition shadow-sm">
+                ← Bekor qilish
+            </a>
+            <div class="flex items-center space-x-2">
+                <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-800 border border-gray-200">
+                    ID: #{{ vacancy.id }}
+                </span>
+                {% if vacancy.is_active %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                        <span class="w-1.5 h-1.5 mr-1.5 bg-green-600 rounded-full"></span>
+                        Faol
+                    </span>
+                {% else %}
+                    <span class="inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-300">
+                        <span class="w-1.5 h-1.5 mr-1.5 bg-gray-400 rounded-full"></span>
+                        Nofaol
+                    </span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Vacancy Form Card -->
+        <section class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 relative overflow-hidden" aria-labelledby="form-heading">
+            <div class="absolute top-0 left-0 right-0 h-1 bg-blue-600"></div>
+            
+            <div class="border-b border-gray-100 pb-6">
+                <span class="text-xs font-bold uppercase tracking-wider text-blue-600">HR Boshqaruvi</span>
+                <h1 id="form-heading" class="text-2xl sm:text-3xl font-black text-black mt-1">
+                    Vakansiyani Tahrirlash
+                </h1>
+                <p class="text-sm text-gray-500 mt-1">
+                    Vakansiya ma'lumotlarini yangilang. Zarur bo'lsa, tavsif o'zgarganda AI intervyu savollarini qayta shakllantiring.
+                </p>
+            </div>
+
+            <form id="vacancyEditForm" action="/dashboard/vacancies/{{ vacancy.id }}/edit" method="POST" class="mt-8 space-y-6">
+                
+                <!-- Title & Department Row -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <label for="title" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Vakansiya Nomi <span class="text-red-600">*</span>
+                        </label>
+                        <input type="text" id="title" name="title" required
+                               value="{{ vacancy.title }}"
+                               placeholder="Masalan: Sotuvchi-Konsultant, Menejer"
+                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                    </div>
+                    <div>
+                        <label for="department" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Bo'lim <span class="text-red-600">*</span>
+                        </label>
+                        <input type="text" id="department" name="department" required
+                               value="{{ vacancy.department }}"
+                               placeholder="Masalan: Savdo, Moliya, Logistika, IT"
+                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                    </div>
+                </div>
+
+                <!-- Branch Select -->
+                <div>
+                    <label for="branch_id" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                        Filial <span class="text-red-600">*</span>
+                    </label>
+                    <select id="branch_id" name="branch_id" required
+                            class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition bg-white shadow-xs">
+                        <option value="" disabled>Filialni tanlang</option>
+                        {% for branch in branches %}
+                            <option value="{{ branch.id }}" {% if branch.id == vacancy.branch_id %}selected{% endif %}>
+                                {{ branch.name }} ({{ branch.address }})
+                            </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Description Textarea -->
+                <div>
+                    <label for="description" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                        Vakansiya Tavsifi <span class="text-red-600">*</span>
+                    </label>
+                    <textarea id="description" name="description" rows="6" required
+                              placeholder="Vakansiya vazifalari, nomzodga qo'yiladigan talablar va ish sharoitlari haqida batafsil ma'lumot kiriting..."
+                              class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">{{ vacancy.description }}</textarea>
+                </div>
+
+                <!-- Status Checkbox -->
+                <div class="p-4 bg-gray-50 rounded-xl border border-gray-200">
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            <input id="is_active" name="is_active" type="checkbox" {% if vacancy.is_active %}checked{% endif %}
+                                   class="w-4 h-4 text-blue-600 bg-white border-gray-300 rounded focus:ring-blue-500 cursor-pointer">
+                        </div>
+                        <div class="ml-3 text-sm">
+                            <label for="is_active" class="font-bold text-gray-800 cursor-pointer">Faol holatda (Nomzodlar uchun ochiq)</label>
+                            <p class="text-xs text-gray-500 mt-0.5">Vakansiya arizalar qabul qilish uchun ochiq yoki vaqtincha to'xtatilganligini belgilang.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Regenerate AI Questions Checkbox -->
+                <div class="p-4 bg-red-50/60 rounded-xl border border-red-200">
+                    <div class="flex items-start">
+                        <div class="flex items-center h-5">
+                            <input id="regenerate_ai" name="regenerate_ai" type="checkbox"
+                                   class="w-4 h-4 text-red-600 bg-white border-red-300 rounded focus:ring-red-500 cursor-pointer">
+                        </div>
+                        <div class="ml-3 text-sm">
+                            <label for="regenerate_ai" class="font-bold text-red-900 cursor-pointer">AI Savollarini qayta generatsiya qilish (Tavsif o'zgarganda tavsiya etiladi)</label>
+                            <p class="text-xs text-red-700 mt-0.5">Belgilangan taqdirda, yangilangan tavsif asosida OpenAI gpt-4o-mini modeli yordamida 4 ta yangi intervyu savollari shakllantiriladi va hisobga olinadi.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Current AI Questions Preview Accordion / Collapsible (Optional helper) -->
+                <div class="border border-gray-200 rounded-xl p-4 bg-gray-50/50">
+                    <details class="group">
+                        <summary class="flex justify-between items-center font-bold text-xs uppercase tracking-wider text-gray-600 cursor-pointer list-none">
+                            <span>Mavjud AI Savollari (Ko'rish)</span>
+                            <span class="transition group-open:rotate-180 text-gray-400">▼</span>
+                        </summary>
+                        <div class="mt-4 pt-3 border-t border-gray-200 space-y-3 text-xs text-gray-700">
+                            <div>
+                                <span class="font-bold text-red-600">Hard-Skill 1:</span> {{ vacancy.generated_hard_skill_q1 or '-' }}
+                            </div>
+                            <div>
+                                <span class="font-bold text-red-600">Hard-Skill 2:</span> {{ vacancy.generated_hard_skill_q2 or '-' }}
+                            </div>
+                            <div>
+                                <span class="font-bold text-gray-900">Soft-Skill 1:</span> {{ vacancy.generated_soft_skill_q1 or '-' }}
+                            </div>
+                            <div>
+                                <span class="font-bold text-gray-900">Soft-Skill 2:</span> {{ vacancy.generated_soft_skill_q2 or '-' }}
+                            </div>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- Actions Row -->
+                <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-gray-100">
+                    <a href="/dashboard/hr" class="w-full sm:w-auto text-center px-6 py-3 rounded-xl border border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-black font-semibold text-sm transition">
+                        ← Bekor qilish
+                    </a>
+                    <button type="submit" id="submitBtn" class="w-full sm:w-auto px-8 py-3 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
+                        <span id="btnText">O'zgarishlarni Saqlash</span>
+                        <span id="btnSpinner" class="hidden flex items-center gap-2">
+                            <svg class="animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            <span id="spinnerText">Saqlanmoqda...</span>
+                        </span>
+                    </button>
+                </div>
+
+            </form>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-auto py-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-400">
+            &copy; 2026 Mega Star. Barcha huquqlar himoyalangan.
+        </div>
+    </footer>
+
+    <!-- Form Submit & Loading State Script -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('vacancyEditForm');
+            const submitBtn = document.getElementById('submitBtn');
+            const btnText = document.getElementById('btnText');
+            const btnSpinner = document.getElementById('btnSpinner');
+            const spinnerText = document.getElementById('spinnerText');
+            const regenerateAiCheckbox = document.getElementById('regenerate_ai');
+
+            if (form && submitBtn) {
+                form.addEventListener('submit', function() {
+                    if (form.checkValidity()) {
+                        submitBtn.classList.add('opacity-80', 'cursor-not-allowed');
+                        btnText.classList.add('hidden');
+                        btnSpinner.classList.remove('hidden');
+                        if (regenerateAiCheckbox && regenerateAiCheckbox.checked) {
+                            spinnerText.textContent = "AI Savollar qayta generatsiya qilinmoqda...";
+                        } else {
+                            spinnerText.textContent = "Saqlanmoqda...";
+                        }
+                        setTimeout(() => {
+                            submitBtn.disabled = true;
+                        }, 0);
+                    }
+                });
+            }
+        });
+    </script>
+
+</body>
+</html>
