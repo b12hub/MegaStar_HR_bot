@@ -177,6 +177,7 @@
                                 <td class="px-6 py-4 whitespace-nowrap text-xs">
                                     <div class="flex items-center gap-2">
                                         <a href="/dashboard/vacancies/{{ vacancy.id }}" class="text-gray-700 hover:text-black hover:underline font-medium text-xs">Ko'rish</a>
+                                        <a href="/dashboard/vacancies/{{ vacancy.id }}/candidates" class="text-gray-700 hover:text-black hover:underline font-medium text-xs">Nomzodlar ({{ vacancy.candidate_count }})</a>
                                         <form action="/dashboard/vacancies/{{ vacancy.id }}/toggle" method="POST" class="inline">
                                             <button type="submit" class="text-xs font-medium {{ 'text-amber-600 hover:text-amber-800' if vacancy.is_active else 'text-emerald-600 hover:text-emerald-800' }} hover:underline">
                                                 {{ 'Nofaol qilish' if vacancy.is_active else 'Faollashtirish' }}

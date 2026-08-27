@@ -6,5 +6,6 @@
     </content>
     <orderEntry type="jdk" jdkName="~/mega-star_HR-website/.venv" jdkType="Python SDK" />
     <orderEntry type="sourceFolder" forTests="false" />
+    <orderEntry type="library" name="telegram-web-app" level="application" />
   </component>
 </module>

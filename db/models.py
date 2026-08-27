@@ -1,7 +1,9 @@
 from enum import Enum
 from datetime import datetime, date, timezone
-from typing import Optional, List
+from typing import Optional, List, Dict, Any
 from sqlmodel import SQLModel, Field
+from sqlalchemy import Column
+from sqlalchemy.types import JSON
 
 
 class UserRole(str, Enum):
@@ -43,11 +45,12 @@ class User(SQLModel, table=True):
     __tablename__ = "user"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    telegram_id: Optional[int] = Field(default=None, index=True)
-    full_name: str
-    phone_number: str
-    role: UserRole = Field(default=UserRole.CANDIDATE)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    telegram_id: Optional[int] = Field(default=None, unique=True, index=True)
+    telegram_username: Optional[str] = Field(default=None)
+    full_name: Optional[str] = Field(default=None)
+    phone_number: Optional[str] = Field(default=None)
+    role: str = Field(default="candidate")
+    created_at: datetime = Field(default_factory=datetime.utcnow)
 
 
 class LLMUsageLog(SQLModel, table=True):
@@ -67,12 +70,19 @@ class Vacancy(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     title: str
     department: str
+    branch: Optional[str] = Field(default=None)
+    region: Optional[str] = Field(default=None)
+    category: Optional[str] = Field(default=None)
     description: str
     branch_id: int = Field(foreign_key="branch.id")
-    generated_hard_skill_q1: str
-    generated_hard_skill_q2: str
-    generated_soft_skill_q1: str
-    generated_soft_skill_q2: str
+    generated_hard_skill_q1: Optional[str] = Field(default=None)
+    generated_hard_skill_q2: Optional[str] = Field(default=None)
+    generated_soft_skill_q1: Optional[str] = Field(default=None)
+    generated_soft_skill_q2: Optional[str] = Field(default=None)
+    hard_skill_q1: Optional[str] = Field(default=None)
+    hard_skill_q2: Optional[str] = Field(default=None)
+    soft_skill_q1: Optional[str] = Field(default=None)
+    soft_skill_q2: Optional[str] = Field(default=None)
     llm_cost_usd: float = Field(default=0.0)
     is_active: bool = Field(default=True)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
@@ -85,23 +95,25 @@ class CandidateApplication(SQLModel, table=True):
     user_id: int = Field(foreign_key="user.id")
     vacancy_id: int = Field(foreign_key="vacancy.id")
     branch_id: int = Field(foreign_key="branch.id")
-    
-    # Personal & Background Info
+
     birth_date: Optional[str] = Field(default=None)
     gender: Optional[str] = Field(default=None)
-    languages: Optional[str] = Field(default=None)  # e.g. JSON or comma-separated
-    pc_skills: Optional[str] = Field(default=None)  # e.g. JSON or comma-separated
-    
-    # AI Dynamic Questions Answers
+    languages: Optional[str] = Field(default=None)
+    pc_skills: Optional[str] = Field(default=None)
+
     hard_skill_a1: Optional[str] = Field(default=None)
     hard_skill_a2: Optional[str] = Field(default=None)
     soft_skill_a1: Optional[str] = Field(default=None)
     soft_skill_a2: Optional[str] = Field(default=None)
-    
-    # Status & Stage
+
+    resume_file_path: Optional[str] = Field(default=None)
+    photo_file_path: Optional[str] = Field(default=None)
+    extended_data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
+
     status: ApplicationStatus = Field(default=ApplicationStatus.PENDING)
     stage: InterviewStage = Field(default=InterviewStage.HR_VERIFICATION)
-    
+    ai_score: Optional[int] = Field(default=None)
+
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
 

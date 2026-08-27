@@ -6,7 +6,10 @@ dependencies = [
     "aiogram>=3.30.0",
     "fastapi>=0.141.1",
     "openai>=3.3.1",
+    "psycopg2-binary>=2.9.12",
     "pydantic-settings>=2.15.0",
     "python-dotenv>=1.2.3",
+    "spglib>=2.7.0",
     "sqlmodel>=0.0.39",
+    "uvicorn>=0.52.4",
 ]

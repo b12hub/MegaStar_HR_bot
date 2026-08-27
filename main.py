@@ -1,17 +1,21 @@
 import asyncio
 from contextlib import asynccontextmanager
+
 import uvicorn
 from fastapi import FastAPI
-from api import dashboard
+from fastapi.staticfiles import StaticFiles
+
+from api import dashboard, webapp
 from api.portal import router as hr_router
-from api.webapp import router as candidate_router
 from bot.main import bot, dp
 from db.database import init_db
+from seed import seed_vacancies_if_needed
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
+    seed_vacancies_if_needed()
     yield
 
 
@@ -19,8 +23,11 @@ app = FastAPI(title="Mega Star HR Portal", lifespan=lifespan)
 
 # Register API endpoints
 app.include_router(hr_router)
-app.include_router(candidate_router)
+app.include_router(webapp.router)
 app.include_router(dashboard.router)
+
+# Serve uploaded CVs
+app.mount('/uploads', StaticFiles(directory='uploads'), name='uploads')
 
 
 async def main():
@@ -31,7 +38,7 @@ async def main():
     # Run FastAPI and Telegram Bot polling concurrently
     await asyncio.gather(
         server.serve(),
-        dp.start_polling(bot)
+        dp.start_polling(bot),
     )
 
 

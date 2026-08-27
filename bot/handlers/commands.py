@@ -17,15 +17,19 @@ async def command_start_handler(message: Message) -> None:
     Sends welcome message and InlineKeyboardMarkup with WebApp button.
     """
     welcome_text = (
-        "Mega Star HR botiga xush kelibsiz! "
-        "Vakansiyalar va ariza topshirish uchun quyidagi tugmani bosing:"
+        "Mega Star HR tizimiga xush kelibsiz! 🌟\n\n"
+        "Jamoamizga qo'shilish uchun ajoyib imkoniyat. "
+        "Ochiq vakansiyalarga ariza topshirish uchun quyidagi tugmani bosing:"
     )
-    webapp_url = f"{settings.WEBAPP_URL.rstrip('/')}/apply"
+
+    # Point to central portal page
+    webapp_url = f"{settings.WEBAPP_URL.rstrip('/')}/apply/portal"
+
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[
             [
                 InlineKeyboardButton(
-                    text="🚀 Portalni ochish",
+                    text="🚀 Vakansiyaga Topshirish",
                     web_app=WebAppInfo(url=webapp_url),
                 )
             ]

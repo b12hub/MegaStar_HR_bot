@@ -1,0 +1,99 @@
+<!-- templates/portal.html -->
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Bizning bo'sh ish o'rinlarimiz</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans antialiased">
+  <main class="max-w-6xl mx-auto p-6">
+    <header class="mb-6">
+      <h1 class="text-3xl font-extrabold">Bizning bo'sh ish o'rinlarimiz</h1>
+      <p class="text-sm text-gray-500 mt-1">Vakansiyalarni ko‘zdan kechiring va murojaat qiling</p>
+    </header>
+
+    <!-- Filters -->
+    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6">
+      <select id="filterRegion" class="p-3 rounded-lg border bg-white">
+        <option value="">Hammasi (Hududlar)</option>
+        {% for region in regions %}
+        <option value="{{ region }}">{{ region }}</option>
+        {% endfor %}
+      </select>
+
+      <select id="filterBranch" class="p-3 rounded-lg border bg-white">
+        <option value="">Hammasi (Filiallar)</option>
+        {% for b in branches %}
+        <option value="{{ b.id }}">{{ b.name }}</option>
+        {% endfor %}
+      </select>
+
+      <select id="filterDepartment" class="p-3 rounded-lg border bg-white">
+        <option value="">Hammasi (Bo'limlar)</option>
+        {% for d in departments %}
+        <option value="{{ d }}">{{ d }}</option>
+        {% endfor %}
+      </select>
+
+      <select id="filterCategory" class="p-3 rounded-lg border bg-white">
+        <option value="">Hammasi (Kategoriyalar)</option>
+        {% for c in categories %}
+        <option value="{{ c }}">{{ c }}</option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Vacancies list -->
+    <section id="vacancyGrid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      {% for v in vacancies %}
+      <a href="/apply/{{ v.id }}" class="vacancy-card block bg-white p-5 rounded-xl border border-gray-200 hover:shadow-md transition" data-region="{{ v.region or '' }}" data-branch="{{ v.branch_id }}" data-department="{{ v.department or '' }}" data-category="{{ v.category or '' }}">
+        <div class="flex items-start justify-between">
+          <div>
+            <h3 class="text-lg font-bold text-black">{{ v.title }}</h3>
+            <p class="text-xs text-gray-500 mt-1">{{ v.department }}</p>
+          </div>
+          <div class="text-xs text-gray-400 font-mono">#{{ v.id }}</div>
+        </div>
+        <div class="mt-4 text-sm text-gray-700">
+          {{ v.description[:150] }}{% if v.description|length > 150 %}...{% endif %}
+        </div>
+        <div class="mt-4 flex items-center justify-between text-xs text-gray-500">
+          <div>Hudud: {{ v.region or 'Ma'lum emas' }}</div>
+          <div>Filial: {{ v.branch or v.branch_id }}</div>
+        </div>
+      </a>
+      {% endfor %}
+    </section>
+  </main>
+
+  <script>
+    const filterRegion = document.getElementById('filterRegion');
+    const filterBranch = document.getElementById('filterBranch');
+    const filterDepartment = document.getElementById('filterDepartment');
+    const filterCategory = document.getElementById('filterCategory');
+    const cards = [...document.querySelectorAll('.vacancy-card')];
+
+    function applyFilters() {
+      const region = filterRegion.value;
+      const branch = filterBranch.value;
+      const department = filterDepartment.value;
+      const category = filterCategory.value;
+
+      cards.forEach((card) => {
+        const matchRegion = !region || card.dataset.region === region;
+        const matchBranch = !branch || String(card.dataset.branch) === String(branch);
+        const matchDepartment = !department || card.dataset.department === department;
+        const matchCategory = !category || card.dataset.category === category;
+
+        card.style.display = matchRegion && matchBranch && matchDepartment && matchCategory ? '' : 'none';
+      });
+    }
+
+    [filterRegion, filterBranch, filterDepartment, filterCategory].forEach((filter) => {
+      filter.addEventListener('change', applyFilters);
+    });
+  </script>
+</body>
+</html>
