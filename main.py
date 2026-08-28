@@ -18,7 +18,12 @@ async def lifespan(app: FastAPI):
     seed_vacancies_if_needed()
     yield
 
-
+# def close_terminal():
+#     """Close the terminal gracefully."""
+#     print("Shutting down the application...")
+#     # Add any cleanup logic here if needed
+#     # For example, closing database connections, stopping background tasks, etc.
+#     asyncio.get_event_loop().stop()
 app = FastAPI(title="Mega Star HR Portal", lifespan=lifespan)
 
 # Register API endpoints
@@ -26,8 +31,10 @@ app.include_router(hr_router)
 app.include_router(webapp.router)
 app.include_router(dashboard.router)
 
-# Serve uploaded CVs
+# Serve static files and uploaded CVs
+app.mount('/static', StaticFiles(directory='static'), name='static')
 app.mount('/uploads', StaticFiles(directory='uploads'), name='uploads')
+
 
 
 async def main():

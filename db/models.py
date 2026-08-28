@@ -96,20 +96,50 @@ class CandidateApplication(SQLModel, table=True):
     vacancy_id: int = Field(foreign_key="vacancy.id")
     branch_id: int = Field(foreign_key="branch.id")
 
+    # --- Core personal info ---
     birth_date: Optional[str] = Field(default=None)
     gender: Optional[str] = Field(default=None)
+    email: Optional[str] = Field(default=None)
+    address: Optional[str] = Field(default=None)
+    extra_phone: Optional[str] = Field(default=None)
+    marital_status: Optional[str] = Field(default=None)
+    is_student: Optional[bool] = Field(default=None)
+    education_field: Optional[str] = Field(default=None)
+
+    # --- Language proficiency ---
+    uz_lang_level: Optional[str] = Field(default=None)
+    rus_lang_level: Optional[str] = Field(default=None)
+    eng_lang_level: Optional[str] = Field(default=None)
+
+    # --- Professional info ---
+    computer_level: Optional[str] = Field(default=None)
+    work_experience_years: Optional[str] = Field(default=None)
+    crm_tools: Optional[str] = Field(default=None)
+    expected_salary: Optional[str] = Field(default=None)
+    has_car: Optional[bool] = Field(default=None)
+    why_you: Optional[str] = Field(default=None)
+    is_convicted: Optional[bool] = Field(default=None)
+    where_heard: Optional[str] = Field(default=None)
+    accept_offer: Optional[bool] = Field(default=None)
+
+    # --- Legacy / kept for backward compat ---
     languages: Optional[str] = Field(default=None)
     pc_skills: Optional[str] = Field(default=None)
 
+    # --- AI evaluation answers ---
     hard_skill_a1: Optional[str] = Field(default=None)
     hard_skill_a2: Optional[str] = Field(default=None)
     soft_skill_a1: Optional[str] = Field(default=None)
     soft_skill_a2: Optional[str] = Field(default=None)
 
+    # --- File uploads ---
     resume_file_path: Optional[str] = Field(default=None)
     photo_file_path: Optional[str] = Field(default=None)
+
+    # --- Dynamic arrays (experience, education) stored as JSON ---
     extended_data: Dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 
+    # --- Status & scoring ---
     status: ApplicationStatus = Field(default=ApplicationStatus.PENDING)
     stage: InterviewStage = Field(default=InterviewStage.HR_VERIFICATION)
     ai_score: Optional[int] = Field(default=None)

@@ -2,170 +2,737 @@
 <html lang="uz">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MegaStar HR - Ariza Topshirish</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta name="description" content="Mega Star HR — {{ vacancy.title }} vakansiyasiga ariza topshirish">
+    <title>Mega Star HR — Ariza Topshirish</title>
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Mega Star Brand CSS (overrides Telegram theme) -->
+    <link rel="stylesheet" href="/static/css/style.css">
     <!-- Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <style>
+        /* Telegram Mini-App visual lockdown override */
+        html, body {
+            background-color: #ffffff !important;
+            color: #111827 !important;
+        }
+        .step-section { display: none; }
+        .step-section.active { display: block; }
+    </style>
 </head>
-<body class="bg-gray-50 text-gray-900 font-sans antialiased p-4">
+<body class="bg-white text-gray-900 font-sans antialiased pb-24">
 
-    <!-- Header Branding -->
-    <div class="text-center mb-6">
-        <h1 class="text-3xl font-black italic text-black">Mega<span class="text-red-600">Star</span><span class="text-2xl text-red-600">★</span></h1>
-        <p class="text-sm font-medium text-gray-500 mt-1">{{ vacancy.title }} vakansiyasiga ariza</p>
+    <!-- Official Brand Logo Header Navbar -->
+    <div class="brand-header flex items-center justify-between px-4 py-3.5 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
+        <a href="/apply/portal" class="flex items-center">
+            <img src="/static/images/logo.png" alt="Mega Star" class="h-28 sm:h-32 w-auto object-contain" onerror="this.onerror=null; this.src='/static/images/megastar.jpeg';">
+        </a>
+        <span class="badge bg-red-50 text-red-600 text-xs font-semibold px-2.5 py-1 rounded-full border border-red-100">Karierangizni Boshlang</span>
     </div>
 
-    <div class="max-w-md mx-auto bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden">
-        <!-- Progress Bar -->
-        <div class="w-full bg-gray-100 h-1.5">
-            <div id="progressBar" class="bg-red-600 h-1.5 transition-all duration-300 w-1/3"></div>
+
+    <!-- Universal Adaptive Mobile Container -->
+    <div class="mini-app-container">
+        
+        <!-- Vacancy Title Badge -->
+        <div class="text-center pt-2 pb-4">
+            <span class="inline-block bg-gray-100 text-gray-700 text-xs font-medium px-3 py-1 rounded-full">
+                💼 {{ vacancy.title }}
+            </span>
         </div>
 
-        <form id="applyForm" class="p-6" enctype="multipart/form-data">
-
-            <!-- STEP 1: Shaxsiy Ma'lumotlar -->
-            <div id="step1" class="step-section">
-                <h2 class="text-lg font-bold text-black mb-4">1. Shaxsiy Ma'lumotlar</h2>
-
-                <div class="space-y-4">
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase mb-1">To'liq ismingiz (F.I.SH) <span class="text-red-600">*</span></label>
-                        <input type="text" name="full_name" required placeholder="Masalan: Aliyev Vali" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none text-sm transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Telefon raqam <span class="text-red-600">*</span></label>
-                        <input type="tel" name="phone_number" required placeholder="+998 90 123 45 67" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none text-sm transition">
-                    </div>
-                    <div>
-                        <label class="block text-xs font-bold text-gray-700 uppercase mb-1">Telegram Username (Ixtiyoriy)</label>
-                        <input type="text" name="telegram_username" placeholder="@username" class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-600 focus:border-red-600 outline-none text-sm transition">
-                    </div>
+        <div id="formCard" class="ms-card bg-white rounded-2xl shadow-sm border border-gray-200 overflow-hidden p-5 sm:p-6">
+            
+            <!-- Form Container -->
+            <div id="formContainer">
+                <!-- Animated Step Progress Indicator -->
+                <div class="flex items-center justify-between mb-2">
+                    <span id="stepBadgeText" class="text-xs font-extrabold text-red-600 uppercase tracking-wider bg-red-50 px-2.5 py-1 rounded-full border border-red-100">
+                        1-qadam (5 dan)
+                    </span>
+                    <span id="stepTitle" class="text-xs font-bold text-gray-500">
+                        Shaxsiy ma'lumotlar
+                    </span>
+                </div>
+                <div class="ms-progress-container mb-6">
+                    <div id="progressBar" class="ms-progress-fill" style="width: 20%"></div>
                 </div>
 
-                <div class="mt-6">
-                    <button type="button" onclick="nextStep(2)" class="w-full bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl text-sm transition shadow-sm">
-                        Keyingi Qadam →
+                <form id="applyForm" class="space-y-4" enctype="multipart/form-data">
+
+                    <!-- ═══════════════════════════════════════════════════════ -->
+                    <!-- STEP 1: Shaxsiy ma'lumotlar                             -->
+                    <!-- ═══════════════════════════════════════════════════════ -->
+                    <div id="step1" class="step-section active">
+                        <h2 class="ms-section-title">1. Shaxsiy ma'lumotlar</h2>
+                        <p class="text-xs text-gray-500 mb-4">Iltimos, shaxsiy ma'lumotlaringizni aniq va to'liq kiriting.</p>
+
+                        <div class="space-y-4">
+                            <!-- 👤 Full Name -->
+                            <div>
+                                <label class="ms-field-label">👤 Toʻliq ismingiz: <span class="text-red-600">*</span></label>
+                                <input type="text" name="full_name" required placeholder="Masalan: Aliyev Vali Karimovich" class="ms-input">
+                            </div>
+
+                            <!-- 📅 Birth Date -->
+                            <div>
+                                <label class="ms-field-label">📅 Tug'ilgan sanangiz:</label>
+                                <input type="date" name="birth_date" class="ms-input">
+                            </div>
+
+                            <!-- ✉️ Email -->
+                            <div>
+                                <label class="ms-field-label">✉️ Elektron pochta (Email):</label>
+                                <input type="email" name="email" placeholder="email@example.com" class="ms-input">
+                            </div>
+
+                            <!-- 🏠 Address -->
+                            <div>
+                                <label class="ms-field-label">🏠 Hozirgi yashash manzilingiz:</label>
+                                <input type="text" name="address" placeholder="Shahar, tuman, ko'cha" class="ms-input">
+                            </div>
+
+                            <!-- 📱 Phone Number -->
+                            <div>
+                                <label class="ms-field-label">📱 Telefon raqamingiz: <span class="text-red-600">*</span></label>
+                                <div class="flex">
+                                    <span class="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-gray-300 bg-gray-50 text-sm text-gray-600 font-bold">+998</span>
+                                    <input type="tel" name="phone_number" required placeholder="90 123 45 67" class="ms-input rounded-l-none">
+                                </div>
+                            </div>
+
+                            <!-- 📱 Extra Phone -->
+                            <div>
+                                <label class="ms-field-label">📱 Qoʻshimcha telefon raqam:</label>
+                                <div class="flex">
+                                    <span class="inline-flex items-center px-3 rounded-l-xl border border-r-0 border-gray-300 bg-gray-50 text-sm text-gray-600 font-bold">+998</span>
+                                    <input type="tel" name="extra_phone" placeholder="90 765 43 21" class="ms-input rounded-l-none">
+                                </div>
+                            </div>
+
+                            <!-- 💍 Marital Status (Toggle Buttons) -->
+                            <div>
+                                <label class="ms-field-label mb-2">💍 Oilaviy ahvolingiz:</label>
+                                <div class="ms-toggle-group">
+                                    <input type="radio" name="marital_status" id="ms_married" value="Turmush qurgan">
+                                    <label for="ms_married">Turmush qurgan</label>
+                                    <input type="radio" name="marital_status" id="ms_single" value="Turmush qurmagan">
+                                    <label for="ms_single">Turmush qurmagan</label>
+                                    <input type="radio" name="marital_status" id="ms_divorced" value="Ajrashgan">
+                                    <label for="ms_divorced">Ajrashgan</label>
+                                </div>
+                            </div>
+
+                            <!-- 🎓 Is Student (Toggle Buttons) -->
+                            <div>
+                                <label class="ms-field-label mb-2">🎓 Talabamisiz?:</label>
+                                <div class="ms-toggle-group">
+                                    <input type="radio" name="is_student" id="student_yes" value="Ha">
+                                    <label for="student_yes">✅ Ha</label>
+                                    <input type="radio" name="is_student" id="student_no" value="Yo'q">
+                                    <label for="student_no">❌ Yo'q</label>
+                                </div>
+                            </div>
+
+                            <!-- 📚 Education Field -->
+                            <div>
+                                <label class="ms-field-label">📚 Ta'lim sohangiz / Mutaxassisligingiz:</label>
+                                <input type="text" name="education_field" placeholder="Masalan: Iqtisodiyot, IT, Tibbiyot..." class="ms-input">
+                            </div>
+
+                            <!-- 🇺🇿 Uzbek Language Level (Toggle) -->
+                            <div>
+                                <label class="ms-field-label mb-2">🇺🇿 O'zbek tilini bilish darajangiz:</label>
+                                <div class="ms-toggle-group">
+                                    <input type="radio" name="uz_lang_level" id="uz_low" value="Past (tushunaman, lekin gapira olmayman)">
+                                    <label for="uz_low">Past (tushunaman, lekin gapira olmayman)</label>
+                                    <input type="radio" name="uz_lang_level" id="uz_mid" value="O'rtacha (erkin muloqot)">
+                                    <label for="uz_mid">O'rtacha (erkin muloqot)</label>
+                                    <input type="radio" name="uz_lang_level" id="uz_high" value="Mukammal">
+                                    <label for="uz_high">Mukammal</label>
+                                </div>
+                            </div>
+
+                            <!-- 🇷🇺 Russian Language Level (Toggle) -->
+                            <div>
+                                <label class="ms-field-label mb-2">🇷🇺 Rus tilini bilish darajangiz:</label>
+                                <div class="ms-toggle-group">
+                                    <input type="radio" name="rus_lang_level" id="ru_low" value="Past">
+                                    <label for="ru_low">Past</label>
+                                    <input type="radio" name="rus_lang_level" id="ru_mid" value="O'rtacha">
+                                    <label for="ru_mid">O'rtacha</label>
+                                    <input type="radio" name="rus_lang_level" id="ru_high" value="Mukammal">
+                                    <label for="ru_high">Mukammal</label>
+                                </div>
+                            </div>
+
+                            <!-- 🇬🇧 English Language Level (Toggle) -->
+                            <div>
+                                <label class="ms-field-label mb-2">🇬🇧 Ingliz tilini bilish darajangiz:</label>
+                                <div class="ms-toggle-group">
+                                    <input type="radio" name="eng_lang_level" id="en_low" value="Past">
+                                    <label for="en_low">Past</label>
+                                    <input type="radio" name="eng_lang_level" id="en_mid" value="O'rtacha">
+                                    <label for="en_mid">O'rtacha</label>
+                                    <input type="radio" name="eng_lang_level" id="en_high" value="Mukammal">
+                                    <label for="en_high">Mukammal</label>
+                                </div>
+                            </div>
+
+                            <!-- 💻 Computer Literacy (Toggle) -->
+                            <div>
+                                <label class="ms-field-label mb-2">💻 Kompyuter savodxonligi darajangiz:</label>
+                                <div class="ms-toggle-group">
+                                    <input type="radio" name="computer_level" id="pc_beginner" value="Boshlang'ich">
+                                    <label for="pc_beginner">Boshlang'ich</label>
+                                    <input type="radio" name="computer_level" id="pc_mid" value="O'rtacha">
+                                    <label for="pc_mid">O'rtacha</label>
+                                    <input type="radio" name="computer_level" id="pc_user" value="Tajribali foydalanuvchi">
+                                    <label for="pc_user">Tajribali foydalanuvchi</label>
+                                    <input type="radio" name="computer_level" id="pc_expert" value="Ekspert">
+                                    <label for="pc_expert">Ekspert</label>
+                                </div>
+                            </div>
+
+                            <!-- 💼 Work Experience -->
+                            <div>
+                                <label class="ms-field-label">💼 Umumiy ish tajribasi (yillarda):</label>
+                                <input type="number" name="work_experience_years" placeholder="Masalan: 3" min="0" max="50" class="ms-input">
+                            </div>
+
+                            <!-- 🖥️ CRM Tools -->
+                            <div>
+                                <label class="ms-field-label">🖥️ Qaysi CRM dasturlarida ishlay olasiz?:</label>
+                                <input type="text" name="crm_tools" placeholder="Masalan: Bitrix24, AmoCRM" class="ms-input">
+                            </div>
+
+                            <!-- 💵 Expected Salary -->
+                            <div>
+                                <label class="ms-field-label">💵 Kutilayotgan ish haqi (maosh):</label>
+                                <input type="number" name="expected_salary" placeholder="so'm" class="ms-input">
+                            </div>
+
+                            <!-- 🚗 Car (Toggle) -->
+                            <div>
+                                <label class="ms-field-label mb-2">🚗 Shaxsiy avtomobilingiz bormi?:</label>
+                                <div class="ms-toggle-group">
+                                    <input type="radio" name="has_car" id="car_yes" value="Ha">
+                                    <label for="car_yes">✅ Ha</label>
+                                    <input type="radio" name="has_car" id="car_no" value="Yo'q">
+                                    <label for="car_no">❌ Yo'q</label>
+                                </div>
+                            </div>
+
+                            <!-- 🎯 Why You -->
+                            <div>
+                                <label class="ms-field-label">🎯 Nima uchun aynan sizni tanlashimiz kerak?:</label>
+                                <textarea name="why_you" rows="3" placeholder="Qisqacha o'zingiz haqingizda yozing..." class="ms-input"></textarea>
+                            </div>
+
+                            <!-- ⚖️ Convicted (Toggle) -->
+                            <div>
+                                <label class="ms-field-label mb-2">⚖️ Ilgari sudlanganmisiz?:</label>
+                                <div class="ms-toggle-group">
+                                    <input type="radio" name="is_convicted" id="conv_yes" value="Ha">
+                                    <label for="conv_yes">✅ Ha</label>
+                                    <input type="radio" name="is_convicted" id="conv_no" value="Yo'q">
+                                    <label for="conv_no">❌ Yo'q</label>
+                                </div>
+                            </div>
+
+                            <!-- 🤵 Photo Upload -->
+                            <div>
+                                <label class="ms-field-label">🤵 Shaxsiy fotorasmingiz (3x4 yoki sifatli rasm):</label>
+                                <div class="border-2 border-dashed border-gray-300 rounded-xl p-4 text-center hover:bg-gray-50 transition cursor-pointer relative bg-white">
+                                    <input type="file" name="photo_file" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="document.getElementById('photoName').textContent = this.files[0]?.name || 'Rasm tanlanmadi'">
+                                    <div class="text-gray-400 mb-1 text-2xl">📷</div>
+                                    <p id="photoName" class="text-xs text-gray-500 font-semibold">Rasm tanlanmadi</p>
+                                </div>
+                            </div>
+
+                            <!-- ❓ Where Heard (Toggle) -->
+                            <div>
+                                <label class="ms-field-label mb-2">❓ Vakansiya haqida qayerdan bildingiz?:</label>
+                                <div class="ms-toggle-group">
+                                    <input type="radio" name="where_heard" id="wh_ishgo" value="ishGO.uz">
+                                    <label for="wh_ishgo">ishGO.uz</label>
+                                    <input type="radio" name="where_heard" id="wh_olx" value="OLX">
+                                    <label for="wh_olx">OLX</label>
+                                    <input type="radio" name="where_heard" id="wh_linkedin" value="LinkedIn">
+                                    <label for="wh_linkedin">LinkedIn</label>
+                                    <input type="radio" name="where_heard" id="wh_telegram" value="Telegram kanal">
+                                    <label for="wh_telegram">Telegram kanal</label>
+                                    <input type="radio" name="where_heard" id="wh_xush" value="Xushnudbek">
+                                    <label for="wh_xush">Xushnudbek</label>
+                                    <input type="radio" name="where_heard" id="wh_hh" value="Headhunter">
+                                    <label for="wh_hh">Headhunter</label>
+                                    <input type="radio" name="where_heard" id="wh_insta" value="Instagram">
+                                    <label for="wh_insta">Instagram</label>
+                                    <input type="radio" name="where_heard" id="wh_boshqa" value="Boshqalar">
+                                    <label for="wh_boshqa">Boshqalar</label>
+                                </div>
+                            </div>
+
+                            <!-- Telegram Username & ID (hidden) -->
+                            <input type="hidden" name="telegram_username" value="">
+                            <input type="hidden" name="telegram_id" value="">
+
+                            <!-- 📜 Accept Offer (Checkbox) -->
+                            <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
+                                <label class="flex items-start gap-3 cursor-pointer">
+                                    <input type="checkbox" name="accept_offer" value="Ha" required class="mt-0.5 h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500 accent-[#D90429]">
+                                    <span class="text-xs text-gray-800 font-medium leading-relaxed">
+                                        📜 Ommaviy oferta shartlariga roziman <strong class="text-red-600">[✅ Roziman]</strong>
+                                    </span>
+                                </label>
+                            </div>
+                        </div>
+
+                        <div class="mt-6">
+                            <button type="button" onclick="goToStep(2)" class="btn-next btn-ms-red w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                                Keyingi Qadam →
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ═══════════════════════════════════════════════════════ -->
+                    <!-- STEP 2: Ish tajribasi (Dynamic Experience Blocks)       -->
+                    <!-- ═══════════════════════════════════════════════════════ -->
+                    <div id="step2" class="step-section">
+                        <h2 class="ms-section-title">2. Ish tajribasi</h2>
+                        <p class="text-xs text-gray-500 mb-4">Oldingi ish tajribangizni kiriting. Bir nechta ish joyini qo'shishingiz mumkin.</p>
+
+                        <div id="experienceContainer" class="space-y-4">
+                            <!-- First experience block (always visible) -->
+                            <div class="ms-dynamic-block experience-block">
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="ms-field-label">Ish tajribasi nomi</label>
+                                        <input type="text" data-field="experience_title" placeholder="Masalan: Savdo va sotuv tajribasi" class="ms-input">
+                                    </div>
+                                    <div>
+                                        <label class="ms-field-label">Kompaniya nomi</label>
+                                        <input type="text" data-field="company_name" placeholder="Kompaniya yoki tashkilot nomi" class="ms-input">
+                                    </div>
+                                    <div>
+                                        <label class="ms-field-label">Lavozim</label>
+                                        <input type="text" data-field="position" placeholder="Egallagan lavozimingiz" class="ms-input">
+                                    </div>
+                                    <div class="grid grid-cols-2 gap-3">
+                                        <div>
+                                            <label class="ms-field-label">Boshlangan sana</label>
+                                            <input type="date" data-field="start_date" class="ms-input">
+                                        </div>
+                                        <div>
+                                            <label class="ms-field-label">Tugallangan sana</label>
+                                            <input type="date" data-field="end_date" class="ms-input">
+                                            <label class="flex items-center gap-1.5 mt-2 text-xs text-gray-700 font-medium cursor-pointer">
+                                                <input type="checkbox" class="currently-working accent-[#D90429]" onchange="this.closest('.ms-dynamic-block').querySelector('[data-field=end_date]').disabled = this.checked">
+                                                Hozirda ishlayapman
+                                            </label>
+                                        </div>
+                                    </div>
+                                    <div>
+                                        <label class="ms-field-label">Rahbaringiz F.I.SH.</label>
+                                        <input type="text" data-field="manager_name" placeholder="Masalan: Ivanov Ivan Ivanovich" class="ms-input">
+                                    </div>
+                                    <div>
+                                        <label class="ms-field-label">Rahbaringiz telefon raqami</label>
+                                        <input type="tel" data-field="manager_phone" placeholder="+998 90 123 45 67" class="ms-input">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="button" onclick="addExperienceBlock()" class="ms-add-btn mt-4">
+                            <span>+</span> Tajriba qo'shish
+                        </button>
+
+                        <div class="mt-6 flex gap-3">
+                            <button type="button" onclick="goToStep(1)" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3.5 rounded-xl text-sm transition">
+                                ← Orqaga
+                            </button>
+                            <button type="button" onclick="goToStep(3)" class="btn-next btn-ms-red w-2/3 py-3.5 rounded-xl text-sm font-bold">
+                                Keyingi Qadam →
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ═══════════════════════════════════════════════════════ -->
+                    <!-- STEP 3: Ta'lim darajasi (Dynamic Education Blocks)      -->
+                    <!-- ═══════════════════════════════════════════════════════ -->
+                    <div id="step3" class="step-section">
+                        <h2 class="ms-section-title">3. Ta'lim darajasi</h2>
+                        <p class="text-xs text-gray-500 mb-4">Ta'lim ma'lumotlaringiz va o'quv yurtlaringizni kiriting.</p>
+
+                        <div id="educationContainer" class="space-y-4">
+                            <!-- First education block -->
+                            <div class="ms-dynamic-block education-block">
+                                <div class="space-y-3">
+                                    <div>
+                                        <label class="ms-field-label">Oliygo'h / Muassasa nomi</label>
+                                        <input type="text" data-field="institution" placeholder="Universitet, akademiy, kollej nomi" class="ms-input">
+                                    </div>
+                                    <div>
+                                        <label class="ms-field-label">Ta'lim darajasi</label>
+                                        <select data-field="degree" class="ms-input">
+                                            <option value="">Tanlang...</option>
+                                            <option value="O'rta">O'rta</option>
+                                            <option value="O'rta maxsus">O'rta maxsus</option>
+                                            <option value="Oliy (Bakalavr)">Oliy (Bakalavr)</option>
+                                            <option value="Magistratura">Magistratura</option>
+                                            <option value="PhD / Doktorantura">PhD / Doktorantura</option>
+                                        </select>
+                                    </div>
+                                    <div>
+                                        <label class="ms-field-label">Yo'nalish / Mutaxassislik</label>
+                                        <input type="text" data-field="field_of_study" placeholder="Masalan: Iqtisodiyot, Axborot texnologiyalari" class="ms-input">
+                                    </div>
+                                    <div>
+                                        <label class="ms-field-label">Bitirgan yilingiz</label>
+                                        <input type="number" data-field="graduation_year" placeholder="2024" min="1970" max="2030" class="ms-input">
+                                        <label class="flex items-center gap-1.5 mt-2 text-xs text-gray-700 font-medium cursor-pointer">
+                                            <input type="checkbox" class="currently-studying accent-[#D90429]">
+                                            Hozirda o'qiyman
+                                        </label>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button type="button" onclick="addEducationBlock()" class="ms-add-btn mt-4">
+                            <span>+</span> Ta'lim joyi qo'shish
+                        </button>
+
+                        <div class="mt-6 flex gap-3">
+                            <button type="button" onclick="goToStep(2)" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3.5 rounded-xl text-sm transition">
+                                ← Orqaga
+                            </button>
+                            <button type="button" onclick="goToStep(4)" class="btn-next btn-ms-red w-2/3 py-3.5 rounded-xl text-sm font-bold">
+                                Keyingi Qadam →
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ═══════════════════════════════════════════════════════ -->
+                    <!-- STEP 4: Maxsus Savollar (AI Generated)                 -->
+                    <!-- ═══════════════════════════════════════════════════════ -->
+                    <div id="step4" class="step-section">
+                        <h2 class="ms-section-title">4. Maxsus Savollar</h2>
+                        <p class="text-xs text-gray-500 mb-4">Iltimos, quyidagi kasbiy savollarga o'z tajribangizdan kelib chiqib javob bering.</p>
+
+                        <div class="space-y-5 max-h-[60vh] overflow-y-auto pr-1">
+                            {% if vacancy.generated_hard_skill_q1 %}
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                <label class="block text-xs font-extrabold text-gray-900 mb-2">1. {{ vacancy.generated_hard_skill_q1 }}</label>
+                                <textarea name="hard_skill_a1" rows="3" placeholder="Javobingizni shu yerga yozing..." class="ms-input bg-white"></textarea>
+                            </div>
+                            {% endif %}
+
+                            {% if vacancy.generated_hard_skill_q2 %}
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                <label class="block text-xs font-extrabold text-gray-900 mb-2">2. {{ vacancy.generated_hard_skill_q2 }}</label>
+                                <textarea name="hard_skill_a2" rows="3" placeholder="Javobingizni shu yerga yozing..." class="ms-input bg-white"></textarea>
+                            </div>
+                            {% endif %}
+
+                            {% if vacancy.generated_soft_skill_q1 %}
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                <label class="block text-xs font-extrabold text-gray-900 mb-2">3. {{ vacancy.generated_soft_skill_q1 }}</label>
+                                <textarea name="soft_skill_a1" rows="3" placeholder="Javobingizni shu yerga yozing..." class="ms-input bg-white"></textarea>
+                            </div>
+                            {% endif %}
+
+                            {% if vacancy.generated_soft_skill_q2 %}
+                            <div class="bg-gray-50 p-4 rounded-xl border border-gray-200">
+                                <label class="block text-xs font-extrabold text-gray-900 mb-2">4. {{ vacancy.generated_soft_skill_q2 }}</label>
+                                <textarea name="soft_skill_a2" rows="3" placeholder="Javobingizni shu yerga yozing..." class="ms-input bg-white"></textarea>
+                            </div>
+                            {% endif %}
+                        </div>
+
+                        <div class="mt-6 flex gap-3">
+                            <button type="button" onclick="goToStep(3)" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3.5 rounded-xl text-sm transition">
+                                ← Orqaga
+                            </button>
+                            <button type="button" onclick="goToStep(5)" class="btn-next btn-ms-red w-2/3 py-3.5 rounded-xl text-sm font-bold">
+                                Keyingi Qadam →
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ═══════════════════════════════════════════════════════ -->
+                    <!-- STEP 5: Rezyume (CV) Yuklash & Submit                  -->
+                    <!-- ═══════════════════════════════════════════════════════ -->
+                    <div id="step5" class="step-section">
+                        <h2 class="ms-section-title">5. Rezyume Yuklash</h2>
+                        <p class="text-xs text-gray-500 mb-4">Iltimos, so'nggi rezyumengizni (CV) PDF yoki DOC formatida yuklang.</p>
+
+                        <div class="space-y-4">
+                            <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition cursor-pointer relative bg-white">
+                                <input type="file" name="resume_file" accept=".pdf,.doc,.docx" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="document.getElementById('fileName').textContent = this.files[0]?.name || 'Fayl tanlanmadi'">
+                                <div class="text-gray-400 mb-2 text-3xl">📄</div>
+                                <p class="text-sm font-bold text-gray-800">Faylni tanlang yoki shu yerga tashlang</p>
+                                <p id="fileName" class="text-xs mt-2 font-bold text-red-600">Fayl tanlanmadi</p>
+                            </div>
+                        </div>
+
+                        <!-- Hidden fields: serialized experience & education JSON -->
+                        <input type="hidden" name="experience_json" id="experienceJsonField">
+                        <input type="hidden" name="education_json" id="educationJsonField">
+
+                        <div class="mt-8 flex gap-3">
+                            <button type="button" onclick="goToStep(4)" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3.5 rounded-xl text-sm transition">
+                                ← Orqaga
+                            </button>
+                            <button type="submit" id="submitBtn" class="btn-next btn-ms-red w-2/3 py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
+                                <span id="btnText">Yuborish ✓</span>
+                                <svg id="btnSpinner" class="hidden animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+
+                </form>
+            </div>
+
+            <!-- ═══════════════════════════════════════════════════════ -->
+            <!-- DEDICATED SUCCESS SCREEN CARD (#success-screen)          -->
+            <!-- ═══════════════════════════════════════════════════════ -->
+            <div id="success-screen" class="hidden text-center py-8 px-2 space-y-6">
+                <div class="w-20 h-20 bg-green-50 text-green-500 rounded-full flex items-center justify-center text-4xl mx-auto border border-green-200 shadow-sm animate-bounce">
+                    🎉
+                </div>
+                <div class="space-y-2">
+                    <h2 class="text-2xl font-extrabold text-gray-900">Arizangiz muvaffaqiyatli qabul qilindi!</h2>
+                    <p class="text-sm text-gray-600 max-w-md mx-auto leading-relaxed">
+                        Tez orada HR mutaxassislarimiz siz bilan bog'lanishadi. E'tiboringiz uchun rahmat!
+                    </p>
+                </div>
+                <div class="pt-4">
+                    <button type="button" onclick="closeWebApp()" class="btn-next btn-ms-red w-full max-w-xs py-3.5 rounded-xl text-sm font-bold shadow-md">
+                        Oynani yopish
                     </button>
                 </div>
             </div>
 
-            <!-- STEP 2: Maxsus Savollar (AI Generated) -->
-            <div id="step2" class="step-section hidden">
-                <h2 class="text-lg font-bold text-black mb-4">2. Maxsus Savollar</h2>
-                <p class="text-xs text-gray-500 mb-4">Iltimos, quyidagi kasbiy savollarga o'z tajribangizdan kelib chiqib javob bering.</p>
-
-                <div class="space-y-5 max-h-[60vh] overflow-y-auto pr-2">
-                    {% if vacancy.generated_hard_skill_q1 %}
-                    <div>
-                        <label class="block text-sm font-bold text-gray-800 mb-1">{{ vacancy.generated_hard_skill_q1 }}</label>
-                        <textarea name="hard_skill_a1" rows="2" class="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-600 outline-none text-sm transition"></textarea>
-                    </div>
-                    {% endif %}
-
-                    {% if vacancy.generated_hard_skill_q2 %}
-                    <div>
-                        <label class="block text-sm font-bold text-gray-800 mb-1">{{ vacancy.generated_hard_skill_q2 }}</label>
-                        <textarea name="hard_skill_a2" rows="2" class="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-600 outline-none text-sm transition"></textarea>
-                    </div>
-                    {% endif %}
-
-                    {% if vacancy.generated_soft_skill_q1 %}
-                    <div>
-                        <label class="block text-sm font-bold text-gray-800 mb-1">{{ vacancy.generated_soft_skill_q1 }}</label>
-                        <textarea name="soft_skill_a1" rows="2" class="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-600 outline-none text-sm transition"></textarea>
-                    </div>
-                    {% endif %}
-
-                    {% if vacancy.generated_soft_skill_q2 %}
-                    <div>
-                        <label class="block text-sm font-bold text-gray-800 mb-1">{{ vacancy.generated_soft_skill_q2 }}</label>
-                        <textarea name="soft_skill_a2" rows="2" class="w-full px-4 py-2 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-600 outline-none text-sm transition"></textarea>
-                    </div>
-                    {% endif %}
-                </div>
-
-                <div class="mt-6 flex gap-3">
-                    <button type="button" onclick="prevStep(1)" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 rounded-xl text-sm transition">
-                        ← Orqaga
-                    </button>
-                    <button type="button" onclick="nextStep(3)" class="w-2/3 bg-red-600 hover:bg-red-700 text-white font-bold py-3 rounded-xl text-sm transition shadow-sm">
-                        Keyingi Qadam →
-                    </button>
-                </div>
-            </div>
-
-            <!-- STEP 3: Rezyume (CV) -->
-            <div id="step3" class="step-section hidden">
-                <h2 class="text-lg font-bold text-black mb-4">3. Rezyume Yuklash</h2>
-                <p class="text-xs text-gray-500 mb-4">Iltimos, so'nggi rezyumengizni (CV) PDF yoki DOC formatida yuklang.</p>
-
-                <div class="space-y-4">
-                    <div class="border-2 border-dashed border-gray-300 rounded-xl p-6 text-center hover:bg-gray-50 transition cursor-pointer relative">
-                        <input type="file" name="cv_file" required accept=".pdf,.doc,.docx" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer" onchange="document.getElementById('fileName').textContent = this.files[0]?.name || 'Fayl tanlanmadi'">
-                        <div class="text-gray-400 mb-2 text-3xl">📄</div>
-                        <p class="text-sm font-bold text-gray-700">Faylni tanlang yoki shu yerga tashlang</p>
-                        <p id="fileName" class="text-xs text-red-600 mt-2 font-medium">Fayl tanlanmadi</p>
-                    </div>
-                </div>
-
-                <div class="mt-8 flex gap-3">
-                    <button type="button" onclick="prevStep(2)" class="w-1/3 bg-gray-100 hover:bg-gray-200 text-gray-800 font-bold py-3 rounded-xl text-sm transition">
-                        ← Orqaga
-                    </button>
-                    <button type="submit" id="submitBtn" class="w-2/3 bg-black hover:bg-gray-800 text-white font-bold py-3 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
-                        <span id="btnText">Yuborish</span>
-                        <svg id="btnSpinner" class="hidden animate-spin h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                            <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
-                            <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                        </svg>
-                    </button>
-                </div>
-            </div>
-
-        </form>
+        </div>
     </div>
 
-    <!-- Multi-step & Submit Logic -->
+    <!-- ═══════════════════════════════════════════════════════ -->
+    <!-- JavaScript: Multi-step, Dynamic Blocks, Submit Logic   -->
+    <!-- ═══════════════════════════════════════════════════════ -->
     <script>
+        // Step titles mapping
+        const STEP_TITLES = {
+            1: "Shaxsiy ma'lumotlar",
+            2: "Ish tajribasi",
+            3: "Ta'lim darajasi",
+            4: "Maxsus Savollar",
+            5: "Rezyume Yuklash"
+        };
+
         // Initialize Telegram WebApp API
         const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
         if (tg) {
-            tg.expand(); // Make the web app fill the screen
+            tg.expand();
+            // Auto-fill Telegram data
+            const tgUser = tg.initDataUnsafe?.user;
+            if (tgUser) {
+                if (tgUser.id) document.querySelector('input[name="telegram_id"]').value = tgUser.id;
+                if (tgUser.username) document.querySelector('input[name="telegram_username"]').value = tgUser.username;
+                // Pre-fill name if available
+                const nameField = document.querySelector('input[name="full_name"]');
+                if (nameField && !nameField.value && (tgUser.first_name || tgUser.last_name)) {
+                    nameField.value = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ');
+                }
+            }
         }
 
-        function nextStep(stepNumber) {
-            // Very simple validation for Step 1
-            if (stepNumber === 2) {
-                const name = document.querySelector('input[name="full_name"]').value;
-                const phone = document.querySelector('input[name="phone_number"]').value;
-                if (!name || !phone) {
-                    tg.showAlert("Iltimos, ism va telefon raqamni kiriting.");
-                    return;
+        const TOTAL_STEPS = 5;
+
+        function showAlert(msg) {
+            if (tg && tg.showAlert) {
+                tg.showAlert(msg);
+            } else {
+                alert(msg);
+            }
+        }
+
+        function closeWebApp() {
+            if (tg && tg.close) {
+                tg.close();
+            } else {
+                window.location.href = '/apply/portal';
+            }
+        }
+
+        function goToStep(stepNumber) {
+            // Validate current step before proceeding forward
+            const currentStep = document.querySelector('.step-section.active');
+            const currentNum = currentStep ? parseInt(currentStep.id.replace('step', '')) : 1;
+
+            if (stepNumber > currentNum) {
+                // Validate Step 1: require name + phone + offer acceptance
+                if (currentNum === 1) {
+                    const name = document.querySelector('input[name="full_name"]').value.trim();
+                    const phone = document.querySelector('input[name="phone_number"]').value.trim();
+                    const offer = document.querySelector('input[name="accept_offer"]');
+                    if (!name || !phone) {
+                        showAlert("Iltimos, ism va telefon raqamni kiriting.");
+                        return;
+                    }
+                    if (offer && !offer.checked) {
+                        showAlert("Iltimos, ommaviy oferta bilan rozilik shartini belgilang.");
+                        return;
+                    }
                 }
             }
 
-            document.querySelectorAll('.step-section').forEach(el => el.classList.add('hidden'));
-            document.getElementById(`step${stepNumber}`).classList.remove('hidden');
+            // Hide all steps, show target
+            document.querySelectorAll('.step-section').forEach(el => {
+                el.classList.remove('active');
+            });
+            document.getElementById(`step${stepNumber}`).classList.add('active');
 
-            // Update progress bar
-            const progress = {1: 'w-1/3', 2: 'w-2/3', 3: 'w-full'};
-            const bar = document.getElementById('progressBar');
-            bar.className = `bg-red-600 h-1.5 transition-all duration-300 ${progress[stepNumber]}`;
+            // Update step badge & progress bar
+            document.getElementById('stepBadgeText').textContent = `${stepNumber}-qadam (5 dan)`;
+            document.getElementById('stepTitle').textContent = STEP_TITLES[stepNumber] || "";
+
+            const pct = (stepNumber / TOTAL_STEPS) * 100;
+            document.getElementById('progressBar').style.width = `${pct}%`;
+
+            // Scroll to top
+            window.scrollTo({ top: 0, behavior: 'smooth' });
         }
 
-        function prevStep(stepNumber) {
-            document.querySelectorAll('.step-section').forEach(el => el.classList.add('hidden'));
-            document.getElementById(`step${stepNumber}`).classList.remove('hidden');
-
-            // Update progress bar
-            const progress = {1: 'w-1/3', 2: 'w-2/3', 3: 'w-full'};
-            const bar = document.getElementById('progressBar');
-            bar.className = `bg-red-600 h-1.5 transition-all duration-300 ${progress[stepNumber]}`;
+        // ─── Dynamic Experience Blocks ───
+        function addExperienceBlock() {
+            const container = document.getElementById('experienceContainer');
+            const block = document.createElement('div');
+            block.className = 'ms-dynamic-block experience-block';
+            block.innerHTML = `
+                <button type="button" class="ms-remove-btn" onclick="this.closest('.experience-block').remove()" title="O'chirish">✕</button>
+                <div class="space-y-3">
+                    <div>
+                        <label class="ms-field-label">Ish tajribasi nomi</label>
+                        <input type="text" data-field="experience_title" placeholder="Masalan: Savdo va sotuv tajribasi" class="ms-input">
+                    </div>
+                    <div>
+                        <label class="ms-field-label">Kompaniya nomi</label>
+                        <input type="text" data-field="company_name" placeholder="Kompaniya yoki tashkilot nomi" class="ms-input">
+                    </div>
+                    <div>
+                        <label class="ms-field-label">Lavozim</label>
+                        <input type="text" data-field="position" placeholder="Egallagan lavozimingiz" class="ms-input">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="ms-field-label">Boshlangan sana</label>
+                            <input type="date" data-field="start_date" class="ms-input">
+                        </div>
+                        <div>
+                            <label class="ms-field-label">Tugallangan sana</label>
+                            <input type="date" data-field="end_date" class="ms-input">
+                            <label class="flex items-center gap-1.5 mt-2 text-xs text-gray-700 font-medium cursor-pointer">
+                                <input type="checkbox" class="currently-working accent-[#D90429]" onchange="this.closest('.ms-dynamic-block').querySelector('[data-field=end_date]').disabled = this.checked">
+                                Hozirda ishlayapman
+                            </label>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="ms-field-label">Rahbaringiz F.I.SH.</label>
+                        <input type="text" data-field="manager_name" placeholder="Masalan: Ivanov Ivan Ivanovich" class="ms-input">
+                    </div>
+                    <div>
+                        <label class="ms-field-label">Rahbaringiz telefon raqami</label>
+                        <input type="tel" data-field="manager_phone" placeholder="+998 90 123 45 67" class="ms-input">
+                    </div>
+                </div>
+            `;
+            container.appendChild(block);
         }
 
-        // Handle AJAX form submission
+        // ─── Dynamic Education Blocks ───
+        function addEducationBlock() {
+            const container = document.getElementById('educationContainer');
+            const block = document.createElement('div');
+            block.className = 'ms-dynamic-block education-block';
+            block.innerHTML = `
+                <button type="button" class="ms-remove-btn" onclick="this.closest('.education-block').remove()" title="O'chirish">✕</button>
+                <div class="space-y-3">
+                    <div>
+                        <label class="ms-field-label">Oliygo'h / Muassasa nomi</label>
+                        <input type="text" data-field="institution" placeholder="Universitet, akademiy, kollej nomi" class="ms-input">
+                    </div>
+                    <div>
+                        <label class="ms-field-label">Ta'lim darajasi</label>
+                        <select data-field="degree" class="ms-input">
+                            <option value="">Tanlang...</option>
+                            <option value="O'rta">O'rta</option>
+                            <option value="O'rta maxsus">O'rta maxsus</option>
+                            <option value="Oliy (Bakalavr)">Oliy (Bakalavr)</option>
+                            <option value="Magistratura">Magistratura</option>
+                            <option value="PhD / Doktorantura">PhD / Doktorantura</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label class="ms-field-label">Yo'nalish / Mutaxassislik</label>
+                        <input type="text" data-field="field_of_study" placeholder="Masalan: Iqtisodiyot, Axborot texnologiyalari" class="ms-input">
+                    </div>
+                    <div>
+                        <label class="ms-field-label">Bitirgan yilingiz</label>
+                        <input type="number" data-field="graduation_year" placeholder="2024" min="1970" max="2030" class="ms-input">
+                        <label class="flex items-center gap-1.5 mt-2 text-xs text-gray-700 font-medium cursor-pointer">
+                            <input type="checkbox" class="currently-studying accent-[#D90429]">
+                            Hozirda o'qiyman
+                        </label>
+                    </div>
+                </div>
+            `;
+            container.appendChild(block);
+        }
+
+        // ─── Collect Dynamic Blocks into JSON ───
+        function collectExperienceData() {
+            const blocks = document.querySelectorAll('.experience-block');
+            const result = [];
+            blocks.forEach(block => {
+                const obj = {};
+                block.querySelectorAll('[data-field]').forEach(input => {
+                    obj[input.dataset.field] = input.value || null;
+                });
+                if (obj.company_name || obj.experience_title) {
+                    const cw = block.querySelector('.currently-working');
+                    if (cw && cw.checked) obj.end_date = "Hozirda";
+                    result.push(obj);
+                }
+            });
+            return result;
+        }
+
+        function collectEducationData() {
+            const blocks = document.querySelectorAll('.education-block');
+            const result = [];
+            blocks.forEach(block => {
+                const obj = {};
+                block.querySelectorAll('[data-field]').forEach(input => {
+                    const val = input.value;
+                    obj[input.dataset.field] = input.type === 'number' ? (val ? parseInt(val) : null) : (val || null);
+                });
+                if (obj.institution) {
+                    const cs = block.querySelector('.currently-studying');
+                    if (cs && cs.checked) obj.graduation_year = null;
+                    result.push(obj);
+                }
+            });
+            return result;
+        }
+
+        // ─── Robust Form Submission Handler (Fixes Freeze Bug) ───
         document.getElementById('applyForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
@@ -178,15 +745,16 @@
             btnText.textContent = "Yuborilmoqda...";
             spinner.classList.remove('hidden');
 
+            // Serialize dynamic blocks into hidden fields
+            document.getElementById('experienceJsonField').value = JSON.stringify(collectExperienceData());
+            document.getElementById('educationJsonField').value = JSON.stringify(collectEducationData());
+
             const formData = new FormData(this);
-            const tgUser = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp.initDataUnsafe?.user : null;
-            const resolvedUsername = tgUser?.username || this.querySelector('input[name="telegram_username"]')?.value?.trim();
-            if (resolvedUsername) {
-                formData.set('telegram_username', resolvedUsername);
-            }
-            if (tgUser?.id) {
-                formData.set('telegram_id', String(tgUser.id));
-            }
+
+            // Inject Telegram user data if available
+            const tgUser = tg ? tg.initDataUnsafe?.user : null;
+            if (tgUser?.username) formData.set('telegram_username', tgUser.username);
+            if (tgUser?.id) formData.set('telegram_id', String(tgUser.id));
 
             try {
                 const response = await fetch('/apply/{{ vacancy.id }}', {
@@ -194,20 +762,23 @@
                     body: formData
                 });
 
-                if (!response.ok) {
-                    throw new Error(`HTTP ${response.status}`);
-                }
-
-                alert("Arizangiz muvaffaqiyatli qabul qilindi!");
-                if (window.Telegram && window.Telegram.WebApp) {
-                    window.Telegram.WebApp.close();
+                if (response.ok) {
+                    const data = await response.json().catch(() => ({}));
+                    // Hide form container completely
+                    document.getElementById('formContainer').classList.add('hidden');
+                    // Display Success View Screen
+                    document.getElementById('success-screen').classList.remove('hidden');
+                    window.scrollTo({ top: 0, behavior: 'smooth' });
+                } else {
+                    const errorData = await response.json().catch(() => ({}));
+                    throw new Error(errorData.detail || `HTTP ${response.status}: Ma'lumotlarni saqlashda xato.`);
                 }
             } catch (error) {
                 console.error("Error submitting form:", error);
-                alert('Xatolik yuz berdi. Iltimos qaytadan urinib ko\'ring.');
-            } finally {
+                showAlert('Xatolik yuz berdi: ' + (error.message || 'Tarmoq xatosi! Iltimos, qayta urinib ko\'ring.'));
+                // Restore button state on error so it never freezes
                 btn.disabled = false;
-                btnText.textContent = "Yuborish";
+                btnText.textContent = "Yuborish ✓";
                 spinner.classList.add('hidden');
             }
         });

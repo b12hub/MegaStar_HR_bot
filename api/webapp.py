@@ -323,34 +323,32 @@ async def submit_intake_form(
     telegram_username: Optional[str] = Form(None),
     extra_phone: Optional[str] = Form(None),
     marital_status: Optional[str] = Form(None),
-    job_seeking: Optional[str] = Form(None),
+    is_student: Optional[str] = Form(None),
     education_field: Optional[str] = Form(None),
-    languages: Optional[str] = Form(None),
-    computer_literacy: Optional[str] = Form(None),
-    experience_text: Optional[str] = Form(None),
+    uz_lang_level: Optional[str] = Form(None),
+    rus_lang_level: Optional[str] = Form(None),
+    eng_lang_level: Optional[str] = Form(None),
+    computer_level: Optional[str] = Form(None),
+    work_experience_years: Optional[str] = Form(None),
     crm_tools: Optional[str] = Form(None),
     expected_salary: Optional[str] = Form(None),
     has_car: Optional[str] = Form(None),
     why_you: Optional[str] = Form(None),
-    convicted: Optional[str] = Form(None),
+    is_convicted: Optional[str] = Form(None),
     where_heard: Optional[str] = Form(None),
     accept_offer: Optional[str] = Form(None),
 
-    # Step 2: experience & education (v1 fixed single block; expand as needed)
-    company_1: Optional[str] = Form(None),
-    position_1: Optional[str] = Form(None),
-    start_1: Optional[str] = Form(None),
-    end_1: Optional[str] = Form(None),
-    manager_name_1: Optional[str] = Form(None),
-    manager_phone_1: Optional[str] = Form(None),
+    # Step 2 & 3: dynamic experience & education (JSON strings from frontend)
+    experience_json: Optional[str] = Form(None),
+    education_json: Optional[str] = Form(None),
 
-    # Step 3: AI questions (may be empty)
+    # Step 4: AI questions (may be empty)
     hard_skill_a1: Optional[str] = Form(None),
     hard_skill_a2: Optional[str] = Form(None),
     soft_skill_a1: Optional[str] = Form(None),
     soft_skill_a2: Optional[str] = Form(None),
 
-    # Step 4: files
+    # Step 5: files
     photo_file: Optional[UploadFile] = File(None),
     resume_file: Optional[UploadFile] = File(None),
 
@@ -399,6 +397,9 @@ async def submit_intake_form(
         db.refresh(user)
     else:
         updated = False
+        if full_name and user.full_name != full_name:
+            user.full_name = full_name
+            updated = True
         if telegram_id and user.telegram_id != telegram_id:
             user.telegram_id = telegram_id
             updated = True
@@ -410,51 +411,56 @@ async def submit_intake_form(
             db.commit()
             db.refresh(user)
 
-    # 3) Build extended_data dict
+    # 3) Parse dynamic experience and education JSON arrays
+    experience_list = []
+    education_list = []
+    try:
+        if experience_json:
+            experience_list = json.loads(experience_json)
+    except (json.JSONDecodeError, TypeError):
+        experience_list = []
+    try:
+        if education_json:
+            education_list = json.loads(education_json)
+    except (json.JSONDecodeError, TypeError):
+        education_list = []
+
+    # 4) Build extended_data dict (dynamic arrays only — no ai_answers duplication)
     extended_data: Dict[str, Any] = {
-        "personal": {
-            "birth_date": birth_date,
-            "email": email,
-            "address": address,
-            "extra_phone": extra_phone,
-            "marital_status": marital_status,
-            "job_seeking": job_seeking,
-            "education_field": education_field,
-            "languages": languages,
-            "computer_literacy": computer_literacy,
-            "experience_text": experience_text,
-            "crm_tools": crm_tools,
-            "expected_salary": expected_salary,
-            "has_car": has_car,
-            "why_you": why_you,
-            "convicted": convicted,
-            "where_heard": where_heard,
-            "accept_offer": bool(accept_offer),
-        },
-        "experience": [
-            {
-                "company": company_1,
-                "position": position_1,
-                "start": start_1,
-                "end": end_1,
-                "manager_name": manager_name_1,
-                "manager_phone": manager_phone_1,
-            }
-        ],
-        # AI answer fields stored as part of top-level if present
-        "ai_answers": {
-            "hard_skill_a1": hard_skill_a1,
-            "hard_skill_a2": hard_skill_a2,
-            "soft_skill_a1": soft_skill_a1,
-            "soft_skill_a2": soft_skill_a2,
-        },
+        "experience": experience_list,
+        "education": education_list,
     }
 
-    # 4) Create CandidateApplication record
+    # 5) Helper to convert "Ha"/"Yo'q" strings to boolean
+    def to_bool(val: Optional[str]) -> Optional[bool]:
+        if val is None:
+            return None
+        return val.lower() in ("ha", "true", "1", "yes", "on")
+
+    # 6) Create CandidateApplication record with all flat columns
     application = CandidateApplication(
         user_id=user.id,
         vacancy_id=vacancy_id,
         branch_id=vacancy.branch_id,
+        birth_date=birth_date,
+        email=email,
+        address=address,
+        extra_phone=extra_phone,
+        marital_status=marital_status,
+        is_student=to_bool(is_student),
+        education_field=education_field,
+        uz_lang_level=uz_lang_level,
+        rus_lang_level=rus_lang_level,
+        eng_lang_level=eng_lang_level,
+        computer_level=computer_level,
+        work_experience_years=work_experience_years,
+        crm_tools=crm_tools,
+        expected_salary=expected_salary,
+        has_car=to_bool(has_car),
+        why_you=why_you,
+        is_convicted=to_bool(is_convicted),
+        where_heard=where_heard,
+        accept_offer=to_bool(accept_offer),
         hard_skill_a1=hard_skill_a1 or None,
         hard_skill_a2=hard_skill_a2 or None,
         soft_skill_a1=soft_skill_a1 or None,
@@ -470,5 +476,33 @@ async def submit_intake_form(
     db.commit()
     db.refresh(application)
 
+    # 7) Persist WorkExperience records from parsed JSON
+    for exp in experience_list:
+        if isinstance(exp, dict) and exp.get("company_name"):
+            work_exp = WorkExperience(
+                application_id=application.id,
+                company_name=exp.get("company_name", ""),
+                position=exp.get("position", ""),
+                start_date=exp.get("start_date"),
+                end_date=exp.get("end_date"),
+                description=exp.get("manager_name", ""),
+            )
+            db.add(work_exp)
+
+    # 8) Persist Education records from parsed JSON
+    for edu in education_list:
+        if isinstance(edu, dict) and edu.get("institution"):
+            education_rec = Education(
+                application_id=application.id,
+                institution=edu.get("institution", ""),
+                degree=edu.get("degree"),
+                field_of_study=edu.get("field_of_study"),
+                graduation_year=edu.get("graduation_year"),
+            )
+            db.add(education_rec)
+
+    db.commit()
+
     # Return success: Frontend should close WebApp
     return JSONResponse(content={"success": True, "message": "Arizangiz muvaffaqiyatli yuborildi!", "application_id": application.id})
+
