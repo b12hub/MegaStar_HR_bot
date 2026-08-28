@@ -27,13 +27,13 @@ class VacancyQuestionsSchema(BaseModel):
     soft_skill_q1: str
     soft_skill_q2: str
 
+class EvaluationScoreSchema(BaseModel):
+    score: int
 
 async def generate_vacancy_questions(title: str, description: str) -> Dict[str, Any]:
-    """
-    Generates 2 hard-skill questions and 2 soft-skill situational questions in Uzbek language
-    for the provided vacancy title and description using gpt-4o-mini.
-    Calculates exact token costs.
-    """
+    """Generates vacancy questions..."""
+
+    # 1. ONLY the Question Generation Prompt goes here
     system_prompt = (
         "Siz malakali HR mutaxassisisiz. Berilgan vakansiya lavozimi va tavsifi asosida "
         "nomzodlar uchun O'zbek tilida 2 ta hard-skill (kasbiy ko'nikmalar bo'yicha) va "
@@ -80,3 +80,68 @@ async def generate_vacancy_questions(title: str, description: str) -> Dict[str, 
         "tokens_output": tokens_output,
         "cost_usd": cost_usd,
     }
+
+
+async def evaluate_candidate_answers(candidate_answers: str) -> Dict[str, Any]:
+    """Evaluates candidate answers and returns a score"""
+
+    system_prompt = (
+        "Siz qat'iy va adolatli HR baholovchi sun'iy intellektsiz. "
+        "Nomzodning vakansiyaga mosligini taqdim etilgan ma'lumotlarga asoslanib 0 dan 100 gacha baholang. "
+        "QAT'IY QOIDALAR:\n"
+        "1. Agar nomzodning javoblari umuman mantiqsiz bo'lsa, harflar to'plamidan iborat bo'lsa (masalan, 'jhasdcshcks', 'asdfg') yoki bo'sh bo'lsa, qat'iy ravishda 0 ball bering.\n"
+        "2. Juda qisqa, yuzaki yoki yetarlicha ochib berilmagan javoblardan keskin ball ayiring.\n"
+        "3. Faqatgina tajriba va ko'nikmalar vakansiya talablariga to'liq mos kelgandagina yuqori ball (80-100) bering.\n"
+        "4. Natijani faqatgina bitta 'score' kalitiga ega to'g'ri JSON formatida qaytaring. Hech qanday qo'shimcha matn, izoh yoki Markdown qo'shmang.\n"
+        'Format: {"score": 0}'
+    )
+
+    user_prompt = f"Nomzodning javoblari:\n{candidate_answers}"
+
+    try:
+        # Using a lower temperature for scoring to make it more deterministic and strict
+        response = await client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=EvaluationScoreSchema,
+            temperature=0.3,
+        )
+
+        parsed_score = response.choices[0].message.parsed
+        if parsed_score is not None:
+            score_val = parsed_score.score
+        else:
+            # Fallback if structured parsing fails
+            content = response.choices[0].message.content or '{"score": 0}'
+            try:
+                score_val = json.loads(content).get("score", 0)
+            except json.JSONDecodeError:
+                score_val = 0
+
+        # Calculate Token Usage and Costs
+        tokens_input = response.usage.prompt_tokens if response.usage else 0
+        tokens_output = response.usage.completion_tokens if response.usage else 0
+
+        cost_usd = (tokens_input * INPUT_COST_PER_MILLION / 1_000_000) + (
+            tokens_output * OUTPUT_COST_PER_MILLION / 1_000_000
+        )
+
+        return {
+            "score": score_val,
+            "tokens_input": tokens_input,
+            "tokens_output": tokens_output,
+            "cost_usd": cost_usd,
+        }
+
+    except Exception as e:
+        # Failsafe in case the API call times out or throws an error
+        print(f"Error during AI evaluation: {e}")
+        return {
+            "score": 0,
+            "tokens_input": 0,
+            "tokens_output": 0,
+            "cost_usd": 0.0,
+        }

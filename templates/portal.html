@@ -60,7 +60,7 @@
           {{ v.description[:150] }}{% if v.description|length > 150 %}...{% endif %}
         </div>
         <div class="mt-4 flex items-center justify-between text-xs text-gray-500">
-          <div>Hudud: {{ v.region or 'Ma'lum emas' }}</div>
+          <div>Hudud: {{ v.region or "Ma'lum emas" }}</div>
           <div>Filial: {{ v.branch or v.branch_id }}</div>
         </div>
       </a>
