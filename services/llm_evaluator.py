@@ -28,7 +28,9 @@ class VacancyQuestionsSchema(BaseModel):
     soft_skill_q2: str
 
 class EvaluationScoreSchema(BaseModel):
-    score: int
+    ai_score: int
+    ai_reasoning: str
+
 
 async def generate_vacancy_questions(title: str, description: str) -> Dict[str, Any]:
     """Generates vacancy questions..."""
@@ -83,23 +85,22 @@ async def generate_vacancy_questions(title: str, description: str) -> Dict[str, 
 
 
 async def evaluate_candidate_answers(candidate_answers: str) -> Dict[str, Any]:
-    """Evaluates candidate answers and returns a score"""
+    """Evaluates candidate answers and returns a score and reasoning in Uzbek"""
 
     system_prompt = (
         "Siz qat'iy va adolatli HR baholovchi sun'iy intellektsiz. "
-        "Nomzodning vakansiyaga mosligini taqdim etilgan ma'lumotlarga asoslanib 0 dan 100 gacha baholang. "
+        "Nomzodning vakansiyaga mosligini taqdim etilgan matnli javoblariga asoslanib 0 dan 100 gacha baholang va o'zbek tilida qisqa izoh bering.\n"
         "QAT'IY QOIDALAR:\n"
         "1. Agar nomzodning javoblari umuman mantiqsiz bo'lsa, harflar to'plamidan iborat bo'lsa (masalan, 'jhasdcshcks', 'asdfg') yoki bo'sh bo'lsa, qat'iy ravishda 0 ball bering.\n"
-        "2. Juda qisqa, yuzaki yoki yetarlicha ochib berilmagan javoblardan keskin ball ayiring.\n"
+        "2. Juda qisqa, yuzaka yoki yetarlicha ochib berilmagan javoblardan keskin ball ayiring.\n"
         "3. Faqatgina tajriba va ko'nikmalar vakansiya talablariga to'liq mos kelgandagina yuqori ball (80-100) bering.\n"
-        "4. Natijani faqatgina bitta 'score' kalitiga ega to'g'ri JSON formatida qaytaring. Hech qanday qo'shimcha matn, izoh yoki Markdown qo'shmang.\n"
-        'Format: {"score": 0}'
+        "4. Natijani 'ai_score' (butun son) va 'ai_reasoning' (o'zbek tilida qisqacha izoh) kalitlariga ega JSON formatida qaytaring.\n"
+        'Format: {"ai_score": 75, "ai_reasoning": "Nomzodning javoblari vakansiya talablariga mos keladi, biroq ish tajribasi kamroq."}'
     )
 
     user_prompt = f"Nomzodning javoblari:\n{candidate_answers}"
 
     try:
-        # Using a lower temperature for scoring to make it more deterministic and strict
         response = await client.beta.chat.completions.parse(
             model="gpt-4o-mini",
             messages=[
@@ -110,18 +111,20 @@ async def evaluate_candidate_answers(candidate_answers: str) -> Dict[str, Any]:
             temperature=0.3,
         )
 
-        parsed_score = response.choices[0].message.parsed
-        if parsed_score is not None:
-            score_val = parsed_score.score
+        parsed_eval = response.choices[0].message.parsed
+        if parsed_eval is not None:
+            ai_score = parsed_eval.ai_score
+            ai_reasoning = parsed_eval.ai_reasoning
         else:
-            # Fallback if structured parsing fails
-            content = response.choices[0].message.content or '{"score": 0}'
+            content = response.choices[0].message.content or '{"ai_score": 0, "ai_reasoning": "Xatolik yuz berdi"}'
             try:
-                score_val = json.loads(content).get("score", 0)
+                data = json.loads(content)
+                ai_score = data.get("ai_score", data.get("score", 0))
+                ai_reasoning = data.get("ai_reasoning", "Tahlil qilib bo'lmadi")
             except json.JSONDecodeError:
-                score_val = 0
+                ai_score = 0
+                ai_reasoning = "Tahlil qilib bo'lmadi"
 
-        # Calculate Token Usage and Costs
         tokens_input = response.usage.prompt_tokens if response.usage else 0
         tokens_output = response.usage.completion_tokens if response.usage else 0
 
@@ -130,17 +133,18 @@ async def evaluate_candidate_answers(candidate_answers: str) -> Dict[str, Any]:
         )
 
         return {
-            "score": score_val,
+            "ai_score": ai_score,
+            "ai_reasoning": ai_reasoning,
             "tokens_input": tokens_input,
             "tokens_output": tokens_output,
             "cost_usd": cost_usd,
         }
 
     except Exception as e:
-        # Failsafe in case the API call times out or throws an error
         print(f"Error during AI evaluation: {e}")
         return {
-            "score": 0,
+            "ai_score": 0,
+            "ai_reasoning": f"Baholashda xatolik yuz berdi: {str(e)}",
             "tokens_input": 0,
             "tokens_output": 0,
             "cost_usd": 0.0,

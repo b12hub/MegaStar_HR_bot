@@ -30,7 +30,10 @@ from db.models import (
     UserRole,
     Vacancy,
     WorkExperience,
+    PipelineStage,
+    Meeting,
 )
+
 
 router = APIRouter(tags=["Candidate Portal"])
 templates = Jinja2Templates(directory="templates")
@@ -275,7 +278,28 @@ async def submit_candidate_application(
         soft_skill_a2=form_data.soft_skill_a2,
         status=ApplicationStatus.PENDING,
         stage=InterviewStage.HR_VERIFICATION,
+        pipeline_stage=PipelineStage.YANGI,
     )
+    
+    from api.services.scoring import calculate_objective_score
+    from services.llm_evaluator import evaluate_candidate_answers
+    
+    objective_score = calculate_objective_score(application)
+    application.objective_score = objective_score
+    
+    answers_text = (
+        f"Nima uchun aynan siz: {application.why_you or ''}\n"
+        f"Hard skill A1: {application.hard_skill_a1 or ''}\n"
+        f"Hard skill A2: {application.hard_skill_a2 or ''}\n"
+        f"Soft skill A1: {application.soft_skill_a1 or ''}\n"
+        f"Soft skill A2: {application.soft_skill_a2 or ''}"
+    )
+    
+    ai_result = await evaluate_candidate_answers(answers_text)
+    application.ai_score = ai_result.get("ai_score", 0)
+    application.ai_reasoning = ai_result.get("ai_reasoning", "Tahlil tugallanmadi.")
+    application.total_score = (application.objective_score or 0) + (application.ai_score or 0)
+
     db.add(application)
     db.commit()
     db.refresh(application)
@@ -470,7 +494,27 @@ async def submit_intake_form(
         extended_data=extended_data,
         status=ApplicationStatus.PENDING,
         stage=InterviewStage.HR_VERIFICATION,
+        pipeline_stage=PipelineStage.YANGI,
     )
+    
+    from api.services.scoring import calculate_objective_score
+    from services.llm_evaluator import evaluate_candidate_answers
+    
+    objective_score = calculate_objective_score(application)
+    application.objective_score = objective_score
+    
+    answers_text = (
+        f"Nima uchun aynan siz: {why_you or ''}\n"
+        f"Hard skill A1: {hard_skill_a1 or ''}\n"
+        f"Hard skill A2: {hard_skill_a2 or ''}\n"
+        f"Soft skill A1: {soft_skill_a1 or ''}\n"
+        f"Soft skill A2: {soft_skill_a2 or ''}"
+    )
+    
+    ai_result = await evaluate_candidate_answers(answers_text)
+    application.ai_score = ai_result.get("ai_score", 0)
+    application.ai_reasoning = ai_result.get("ai_reasoning", "Tahlil tugallanmadi.")
+    application.total_score = (application.objective_score or 0) + (application.ai_score or 0)
 
     db.add(application)
     db.commit()
@@ -505,4 +549,51 @@ async def submit_intake_form(
 
     # Return success: Frontend should close WebApp
     return JSONResponse(content={"success": True, "message": "Arizangiz muvaffaqiyatli yuborildi!", "application_id": application.id})
+
+
+@router.get("/apply/status")
+def check_application_status(
+    telegram_id: int,
+    vacancy_id: int,
+    db: Session = Depends(get_session),
+):
+    """
+    Checks if a candidate has already applied for this vacancy.
+    Returns status/stage and scheduled meeting details if available.
+    """
+    user = db.exec(select(User).where(User.telegram_id == telegram_id)).first()
+    if not user:
+        return {"applied": False}
+
+    application = db.exec(
+        select(CandidateApplication)
+        .where(CandidateApplication.user_id == user.id)
+        .where(CandidateApplication.vacancy_id == vacancy_id)
+        .order_by(CandidateApplication.created_at.desc())
+    ).first()
+
+    if not application:
+        return {"applied": False}
+
+    meeting = db.exec(
+        select(Meeting)
+        .where(Meeting.candidate_id == application.id)
+        .where(Meeting.is_completed == False)
+        .order_by(Meeting.meeting_time.desc())
+    ).first()
+
+    meeting_data = None
+    if meeting:
+        meeting_data = {
+            "stage": meeting.stage.value if hasattr(meeting.stage, "value") else str(meeting.stage),
+            "time": meeting.meeting_time.strftime("%Y-%m-%d %H:%M"),
+            "link": meeting.meeting_link,
+        }
+
+    return {
+        "applied": True,
+        "stage": application.pipeline_stage.value if hasattr(application.pipeline_stage, "value") else str(application.pipeline_stage),
+        "meeting": meeting_data,
+    }
+
 

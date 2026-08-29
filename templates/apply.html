@@ -263,8 +263,6 @@
                                     <label for="wh_linkedin">LinkedIn</label>
                                     <input type="radio" name="where_heard" id="wh_telegram" value="Telegram kanal">
                                     <label for="wh_telegram">Telegram kanal</label>
-                                    <input type="radio" name="where_heard" id="wh_xush" value="Xushnudbek">
-                                    <label for="wh_xush">Xushnudbek</label>
                                     <input type="radio" name="where_heard" id="wh_hh" value="Headhunter">
                                     <label for="wh_hh">Headhunter</label>
                                     <input type="radio" name="where_heard" id="wh_insta" value="Instagram">
@@ -278,16 +276,18 @@
                             <input type="hidden" name="telegram_username" value="">
                             <input type="hidden" name="telegram_id" value="">
 
-                            <!-- 📜 Accept Offer (Checkbox) -->
-                            <div class="border border-gray-200 rounded-xl p-4 bg-gray-50">
-                                <label class="flex items-start gap-3 cursor-pointer">
-                                    <input type="checkbox" name="accept_offer" value="Ha" required class="mt-0.5 h-5 w-5 rounded border-gray-300 text-red-600 focus:ring-red-500 accent-[#D90429]">
-                                    <span class="text-xs text-gray-800 font-medium leading-relaxed">
-                                        📜 Ommaviy oferta shartlariga roziman <strong class="text-red-600">[✅ Roziman]</strong>
+                            <!-- 📜 Accept Offer (Modal Trigger) -->
+                            <div class="border border-gray-200 rounded-xl p-4 bg-gray-50 flex items-center justify-between cursor-pointer hover:bg-gray-100 transition" onclick="openOfertaModal()">
+                                <div class="flex items-start gap-3">
+                                    <!-- Hidden checkbox bound to the logic -->
+                                    <input type="checkbox" id="oferta-checkbox" name="accept_offer" required class="hidden">
+                                    <span id="oferta-ui-text" class="text-xs text-gray-800 font-medium leading-relaxed select-none transition-colors">
+                                        📜 Ommaviy oferta shartlariga roziman
                                     </span>
-                                </label>
+                                </div>
+                                <span id="oferta-status-icon" class="text-xs font-bold text-red-600 underline transition-colors">Ko'rish</span>
                             </div>
-                        </div>
+                        </div> <!-- Added closing div for space-y-4 container -->
 
                         <div class="mt-6">
                             <button type="button" onclick="goToStep(2)" class="btn-next btn-ms-red w-full py-3.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2">
@@ -495,7 +495,6 @@
                             </button>
                         </div>
                     </div>
-
                 </form>
             </div>
 
@@ -518,7 +517,39 @@
                     </button>
                 </div>
             </div>
+            <!-- ═══════════════════════════════════════════════════════ -->
+            <!-- OFERTA PDF MODAL (Telegram Native Open)                 -->
+            <!-- ═══════════════════════════════════════════════════════ -->
+            <div id="ofertaModal" class="fixed inset-0 z-[100] hidden flex items-end sm:items-center justify-center bg-black/60 backdrop-blur-sm transition-opacity">
+                <div class="bg-white w-full sm:w-[600px] sm:rounded-2xl rounded-t-2xl flex flex-col shadow-2xl transform transition-transform translate-y-full" id="ofertaModalContent">
+                    <!-- Modal Header -->
+                    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+                        <h3 class="font-bold text-gray-900 text-lg">Ommaviy Oferta</h3>
+                        <button onclick="closeOfertaModal()" class="text-gray-400 hover:text-gray-600 text-2xl leading-none font-bold">&times;</button>
+                    </div>
+                    <!-- Modal Body -->
+                    <div class="p-6 flex-1 text-center space-y-4">
+                        <p class="text-sm text-gray-600">
+                            Arizangizni yuborishdan oldin, kompaniyamizning ommaviy oferta shartlari bilan tanishib chiqishingiz va ularga rozi bo'lishingiz talab etiladi.
+                        </p>
 
+                        <!-- Primary PDF Open Button -->
+                        <button type="button" onclick="openPdfNatively()" class="w-full bg-blue-50 text-blue-700 border border-blue-200 hover:bg-blue-100 font-bold py-3.5 rounded-xl text-sm transition flex items-center justify-center gap-2">
+                            📄 Hujjatni o'qish (PDF)
+                        </button>
+
+                        <p class="text-xs text-gray-400">
+                            * Shartlarni qabul qilish tugmasi hujjatni ochganingizdan so'ng faollashadi.
+                        </p>
+                    </div>
+                    <!-- Modal Footer -->
+                    <div class="p-4 border-t border-gray-100 bg-gray-50 pb-safe">
+                        <button type="button" id="btn-accept-oferta" onclick="acceptOferta()" disabled class="w-full bg-gray-300 text-gray-500 cursor-not-allowed font-bold py-3.5 rounded-xl text-sm transition shadow-sm flex items-center justify-center gap-2">
+                            ✅ Roziman
+                        </button>
+                    </div>
+                </div>
+            </div>
         </div>
     </div>
 
@@ -782,6 +813,90 @@
                 spinner.classList.add('hidden');
             }
         });
+
+       // ─── Dynamic Oferta PDF Logic ───
+
+        // 1. Document Mapping Dictionary
+        const OFERTA_DOC_MAP = {
+            "sales_rules": "/static/docs/sotuv_qoidalar.pdf",
+            "sales_b2c": "/static/docs/sotuv_reglament_b2c.pdf",
+            "sales_general": "/static/docs/sotuv_reglament.pdf",
+            "vitrina_kriteriya": "/static/docs/vitrina_kriteriya.pdf",
+            "vitrina_rules": "/static/docs/vitrina_qoidalar.pdf",
+            "vitrina_reglament": "/static/docs/vitrina_reglament.pdf",
+            "shogirdlar": "/static/docs/shogirdlar_tanishuv.pdf",
+            "default": "/static/docs/sotuv_qoidalar.pdf"
+        };
+
+        // Get department from Jinja context
+        const vacancyDepartment = "{{ vacancy.department|default('default') }}".toLowerCase();
+
+        function openOfertaModal() {
+            const modal = document.getElementById('ofertaModal');
+            const modalContent = document.getElementById('ofertaModalContent');
+
+            // Display modal and trigger slide-up animation
+            modal.classList.remove('hidden');
+            setTimeout(() => {
+                modalContent.classList.remove('translate-y-full');
+            }, 10);
+        }
+
+        function closeOfertaModal() {
+            const modal = document.getElementById('ofertaModal');
+            const modalContent = document.getElementById('ofertaModalContent');
+
+            // Slide down animation
+            modalContent.classList.add('translate-y-full');
+            setTimeout(() => {
+                modal.classList.add('hidden');
+            }, 300);
+        }
+
+        function openPdfNatively() {
+            // 2. Map department to PDF path
+            const pdfPath = OFERTA_DOC_MAP[vacancyDepartment] || OFERTA_DOC_MAP["default"];
+
+            // 3. Construct absolute URL required by Telegram openLink
+            const absoluteUrl = window.location.origin + pdfPath;
+
+            // 4. Open via Telegram WebApp if executing inside Telegram, fallback to standard window for web testing
+            if (window.Telegram && window.Telegram.WebApp && typeof window.Telegram.WebApp.openLink === 'function') {
+                window.Telegram.WebApp.openLink(absoluteUrl);
+            } else {
+                window.open(absoluteUrl, '_blank');
+            }
+
+            // 5. Unlock the "Roziman" (Accept) button by switching Tailwind classes
+            const acceptBtn = document.getElementById('btn-accept-oferta');
+            acceptBtn.disabled = false;
+
+            // Remove disabled styling
+            acceptBtn.classList.remove('bg-gray-300', 'text-gray-500', 'cursor-not-allowed');
+            // Add active styling
+            acceptBtn.classList.add('bg-green-600', 'hover:bg-green-700', 'text-white');
+        }
+
+        function acceptOferta() {
+            // 1. Mark hidden form requirement as true
+            const checkbox = document.getElementById('oferta-checkbox');
+            checkbox.checked = true;
+
+            // 2. Give visual feedback on the main form UI
+            const uiText = document.getElementById('oferta-ui-text');
+            const statusIcon = document.getElementById('oferta-status-icon');
+
+            uiText.classList.replace('text-gray-800', 'text-green-700');
+            uiText.classList.add('font-bold');
+
+            statusIcon.textContent = "✅ Qabul qilindi";
+            statusIcon.classList.remove('text-red-600', 'underline');
+            statusIcon.classList.add('text-green-600');
+
+            // 3. Close the modal
+            closeOfertaModal();
+        }
+
     </script>
 </body>
 </html>

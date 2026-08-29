@@ -27,5 +27,27 @@ def init_db() -> None:
                         "ALTER TABLE vacancy ADD COLUMN IF NOT EXISTS llm_cost_usd DOUBLE PRECISION DEFAULT 0.0;"
                     )
                 )
-        except Exception:
+                conn.execute(
+                    text(
+                        "ALTER TABLE candidate_application ADD COLUMN IF NOT EXISTS objective_score INTEGER DEFAULT 0;"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE candidate_application ADD COLUMN IF NOT EXISTS total_score INTEGER DEFAULT 0;"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE candidate_application ADD COLUMN IF NOT EXISTS ai_reasoning TEXT;"
+                    )
+                )
+                conn.execute(
+                    text(
+                        "ALTER TABLE candidate_application ADD COLUMN IF NOT EXISTS pipeline_stage VARCHAR(50) DEFAULT 'yangi';"
+                    )
+                )
+        except Exception as e:
+            print(f"Migration error: {e}")
             pass
+

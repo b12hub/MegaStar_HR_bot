@@ -59,12 +59,12 @@
       </select>
 
       <select id="filterCategory" class="ms-input">
-        <option value="">Hammasi (Kategoriyalar)</option>
+        <option value="">Hammasi (Lavozimlar)</option>
         {% for c in categories %}
         <option value="{{ c }}">{{ c }}</option>
         {% endfor %}
       </select>
-    </div>
+    </div> <!-- Added missing closing div for the filter grid -->
 
     <!-- Vacancies list -->
     <section id="vacancyGrid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">

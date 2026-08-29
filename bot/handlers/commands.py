@@ -14,7 +14,7 @@ router = Router(name="commands")
 async def command_start_handler(message: Message) -> None:
     """
     /start command handler:
-    Sends welcome message and InlineKeyboardMarkup with WebApp button.
+    Sends welcome message and InlineKeyboardMarkup with a WebApp button.
     """
     welcome_text = (
         "Mega Star HR tizimiga xush kelibsiz! 🌟\n\n"
@@ -22,7 +22,7 @@ async def command_start_handler(message: Message) -> None:
         "Ochiq vakansiyalarga ariza topshirish uchun quyidagi tugmani bosing:"
     )
 
-    # Point to central portal page
+    # Point to the central portal page via Web App
     webapp_url = f"{settings.WEBAPP_URL.rstrip('/')}/apply/portal"
 
     keyboard = InlineKeyboardMarkup(
@@ -35,6 +35,7 @@ async def command_start_handler(message: Message) -> None:
             ]
         ]
     )
+
     await message.answer(welcome_text, reply_markup=keyboard)
 
 

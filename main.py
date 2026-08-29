@@ -2,9 +2,8 @@ import asyncio
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI , Request
 from fastapi.staticfiles import StaticFiles
-
 from api import dashboard, webapp
 from api.portal import router as hr_router
 from bot.main import bot, dp
@@ -18,12 +17,6 @@ async def lifespan(app: FastAPI):
     seed_vacancies_if_needed()
     yield
 
-# def close_terminal():
-#     """Close the terminal gracefully."""
-#     print("Shutting down the application...")
-#     # Add any cleanup logic here if needed
-#     # For example, closing database connections, stopping background tasks, etc.
-#     asyncio.get_event_loop().stop()
 app = FastAPI(title="Mega Star HR Portal", lifespan=lifespan)
 
 # Register API endpoints
@@ -35,7 +28,11 @@ app.include_router(dashboard.router)
 app.mount('/static', StaticFiles(directory='static'), name='static')
 app.mount('/uploads', StaticFiles(directory='uploads'), name='uploads')
 
-
+@app.middleware("http")
+async def add_ngrok_skip_header(request: Request, call_next):
+    response = await call_next(request)
+    response.headers["ngrok-skip-browser-warning"] = "true"
+    return response
 
 async def main():
     # Setup Uvicorn server configuration

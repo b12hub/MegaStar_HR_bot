@@ -1,8 +1,9 @@
+import enum
 from enum import Enum
 from datetime import datetime, date, timezone
 from typing import Optional, List, Dict, Any
 from sqlmodel import SQLModel, Field
-from sqlalchemy import Column
+from sqlalchemy import Column , String
 from sqlalchemy.types import JSON
 
 
@@ -25,6 +26,15 @@ class InterviewStage(str, Enum):
     HR_VERIFICATION = "HR_VERIFICATION"
     BRANCH_INTERVIEW = "BRANCH_INTERVIEW"
     DIRECTOR_INTERVIEW = "DIRECTOR_INTERVIEW"
+
+
+class PipelineStage(str, enum.Enum):
+    YANGI = "yangi"
+    HR_ONLINE = "hr_online"
+    HR_OFFLINE = "hr_offline"
+    DIRECTOR_OFFLINE = "director_offline"
+    RAD_ETILDI = "rad_etildi"
+    QABUL_QILINDI = "qabul_qilindi"
 
 
 class LLMActionType(str, Enum):
@@ -143,6 +153,13 @@ class CandidateApplication(SQLModel, table=True):
     status: ApplicationStatus = Field(default=ApplicationStatus.PENDING)
     stage: InterviewStage = Field(default=InterviewStage.HR_VERIFICATION)
     ai_score: Optional[int] = Field(default=None)
+    objective_score: Optional[int] = Field(default=0)
+    total_score: Optional[int] = Field(default=0)
+    ai_reasoning: Optional[str] = Field(default=None)
+    pipeline_stage: PipelineStage = Field(
+        default=PipelineStage.YANGI,
+        sa_column=Column(String)
+    )
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
@@ -168,3 +185,16 @@ class Education(SQLModel, table=True):
     degree: Optional[str] = Field(default=None)
     field_of_study: Optional[str] = Field(default=None)
     graduation_year: Optional[int] = Field(default=None)
+
+
+class Meeting(SQLModel, table=True):
+    __tablename__ = "meeting"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    candidate_id: int = Field(foreign_key="candidate_application.id")
+    stage: PipelineStage = Field(sa_column=Column(String))
+    meeting_time: datetime
+    meeting_link: Optional[str] = Field(default=None)
+    is_completed: bool = Field(default=False)
+    reminders_sent: int = Field(default=0)
+
