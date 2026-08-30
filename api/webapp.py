@@ -281,7 +281,7 @@ async def submit_candidate_application(
         pipeline_stage=PipelineStage.YANGI,
     )
     
-    from api.services.scoring import calculate_objective_score
+    from services.scoring import calculate_objective_score
     from services.llm_evaluator import evaluate_candidate_answers
     
     objective_score = calculate_objective_score(application)
@@ -294,11 +294,12 @@ async def submit_candidate_application(
         f"Soft skill A1: {application.soft_skill_a1 or ''}\n"
         f"Soft skill A2: {application.soft_skill_a2 or ''}"
     )
-    
+
     ai_result = await evaluate_candidate_answers(answers_text)
-    application.ai_score = ai_result.get("ai_score", 0)
-    application.ai_reasoning = ai_result.get("ai_reasoning", "Tahlil tugallanmadi.")
-    application.total_score = (application.objective_score or 0) + (application.ai_score or 0)
+    ai_score_val = int(ai_result.get("ai_score", 0))
+    application.ai_score = ai_score_val
+    application.ai_reasoning = ai_result.get("feedback", "Tahlil tugallanmadi.")
+    application.total_score = (application.objective_score or 0) + ai_score_val
 
     db.add(application)
     db.commit()
@@ -497,7 +498,7 @@ async def submit_intake_form(
         pipeline_stage=PipelineStage.YANGI,
     )
     
-    from api.services.scoring import calculate_objective_score
+    from services.scoring import calculate_objective_score
     from services.llm_evaluator import evaluate_candidate_answers
     
     objective_score = calculate_objective_score(application)
@@ -510,11 +511,12 @@ async def submit_intake_form(
         f"Soft skill A1: {soft_skill_a1 or ''}\n"
         f"Soft skill A2: {soft_skill_a2 or ''}"
     )
-    
+
     ai_result = await evaluate_candidate_answers(answers_text)
-    application.ai_score = ai_result.get("ai_score", 0)
-    application.ai_reasoning = ai_result.get("ai_reasoning", "Tahlil tugallanmadi.")
-    application.total_score = (application.objective_score or 0) + (application.ai_score or 0)
+    ai_score_val = int(ai_result.get("ai_score", 0))
+    application.ai_score = ai_score_val
+    application.ai_reasoning = ai_result.get("feedback", "Tahlil tugallanmadi.")
+    application.total_score = (application.objective_score or 0) + ai_score_val
 
     db.add(application)
     db.commit()

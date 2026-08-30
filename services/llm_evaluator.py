@@ -1,6 +1,6 @@
 import json
 import os
-from typing import Any, Dict
+from typing import Any, Dict , Union
 from dotenv import load_dotenv
 from openai import AsyncOpenAI
 from pydantic import BaseModel
@@ -27,9 +27,6 @@ class VacancyQuestionsSchema(BaseModel):
     soft_skill_q1: str
     soft_skill_q2: str
 
-class EvaluationScoreSchema(BaseModel):
-    ai_score: int
-    ai_reasoning: str
 
 
 async def generate_vacancy_questions(title: str, description: str) -> Dict[str, Any]:
@@ -84,21 +81,33 @@ async def generate_vacancy_questions(title: str, description: str) -> Dict[str, 
     }
 
 
-async def evaluate_candidate_answers(candidate_answers: str) -> Dict[str, Any]:
-    """Evaluates candidate answers and returns a score and reasoning in Uzbek"""
+class EvaluationScoreSchema(BaseModel):
+    ai_score: int
+    feedback: str
+
+async def evaluate_candidate_answers(answers: Union[Dict[str, Any], str]) -> Dict[str, Any]:
+    """
+    Evaluates candidate answers (dict or string) and returns a score and feedback in Uzbek.
+    """
+    # Check if answers is already a string (from webapp.py) or a dictionary
+    if isinstance(answers, str):
+        formatted_answers = answers
+    elif isinstance(answers, dict):
+        formatted_answers = "\n".join([f"Q: {k}\nA: {v}" for k, v in answers.items()])
+    else:
+        formatted_answers = str(answers)
 
     system_prompt = (
-        "Siz qat'iy va adolatli HR baholovchi sun'iy intellektsiz. "
-        "Nomzodning vakansiyaga mosligini taqdim etilgan matnli javoblariga asoslanib 0 dan 100 gacha baholang va o'zbek tilida qisqa izoh bering.\n"
+        "Siz o'ta qat'iy va shafqatsiz HR baholovchi sun'iy intellektsiz. Vazifangiz nomzodning matnli javoblarini 0 dan 100 gacha baholash.\n\n"
         "QAT'IY QOIDALAR:\n"
-        "1. Agar nomzodning javoblari umuman mantiqsiz bo'lsa, harflar to'plamidan iborat bo'lsa (masalan, 'jhasdcshcks', 'asdfg') yoki bo'sh bo'lsa, qat'iy ravishda 0 ball bering.\n"
-        "2. Juda qisqa, yuzaka yoki yetarlicha ochib berilmagan javoblardan keskin ball ayiring.\n"
-        "3. Faqatgina tajriba va ko'nikmalar vakansiya talablariga to'liq mos kelgandagina yuqori ball (80-100) bering.\n"
-        "4. Natijani 'ai_score' (butun son) va 'ai_reasoning' (o'zbek tilida qisqacha izoh) kalitlariga ega JSON formatida qaytaring.\n"
-        'Format: {"ai_score": 75, "ai_reasoning": "Nomzodning javoblari vakansiya talablariga mos keladi, biroq ish tajribasi kamroq."}'
+        "1. BO'SH YOKI TASODIFIY JAVOBLAR: Bo'sh qoldirilgan javoblar, tasodifiy harflar ('asdfg', 'qwe') yoki ma'nosiz matnlar uchun DARHOL 0 BALL bering.\n"
+        "2. SALBIY VA NOADEKVAT JAVOBLAR: Agar nomzod tajribasi yo'qligini aytsa ('bilmayman', 'ishlatmaganman', 'yo'q', 'qilmaganman', 'foydalanmaganman') yoki agressiv/noadekvat javob bersa ('urushaman', 'o'rganmayman', 'xohlamayman'), QAT'IYAN 0 BALL bering.\n"
+        "3. QISQA JAVOBLAR: 1-2 so'zdan iborat, lekin ijobiy ma'noli bo'lgan javoblar uchun ko'pi bilan 5 ball bering.\n"
+        "4. YUQORI BALL (80-100): Faqatgina savolga to'liq, professional, o'z tajribasini chuqur tushuntirib bergan batafsil javoblargagina qo'yiladi.\n"
+        "5. Natija har doim o'zbek tilida qisqa izoh (feedback) bilan qaytsin. Natijani 'ai_score' (butun son) va 'feedback' kalitlarida qaytaring."
     )
 
-    user_prompt = f"Nomzodning javoblari:\n{candidate_answers}"
+    user_prompt = f"Nomzodning savol-javoblari:\n{formatted_answers}"
 
     try:
         response = await client.beta.chat.completions.parse(
@@ -108,44 +117,27 @@ async def evaluate_candidate_answers(candidate_answers: str) -> Dict[str, Any]:
                 {"role": "user", "content": user_prompt},
             ],
             response_format=EvaluationScoreSchema,
-            temperature=0.3,
+            temperature=0.0,
         )
 
         parsed_eval = response.choices[0].message.parsed
         if parsed_eval is not None:
-            ai_score = parsed_eval.ai_score
-            ai_reasoning = parsed_eval.ai_reasoning
+            return {
+                "ai_score": parsed_eval.ai_score,
+                "feedback": parsed_eval.feedback
+            }
         else:
-            content = response.choices[0].message.content or '{"ai_score": 0, "ai_reasoning": "Xatolik yuz berdi"}'
-            try:
-                data = json.loads(content)
-                ai_score = data.get("ai_score", data.get("score", 0))
-                ai_reasoning = data.get("ai_reasoning", "Tahlil qilib bo'lmadi")
-            except json.JSONDecodeError:
-                ai_score = 0
-                ai_reasoning = "Tahlil qilib bo'lmadi"
-
-        tokens_input = response.usage.prompt_tokens if response.usage else 0
-        tokens_output = response.usage.completion_tokens if response.usage else 0
-
-        cost_usd = (tokens_input * INPUT_COST_PER_MILLION / 1_000_000) + (
-            tokens_output * OUTPUT_COST_PER_MILLION / 1_000_000
-        )
-
-        return {
-            "ai_score": ai_score,
-            "ai_reasoning": ai_reasoning,
-            "tokens_input": tokens_input,
-            "tokens_output": tokens_output,
-            "cost_usd": cost_usd,
-        }
+            # Fallback parsing if structured output partially fails
+            content = response.choices[0].message.content or "{}"
+            data = json.loads(content)
+            return {
+                "ai_score": int(data.get("ai_score", 0)),
+                "feedback": str(data.get("feedback", "Tahlil qilib bo'lmadi"))
+            }
 
     except Exception as e:
         print(f"Error during AI evaluation: {e}")
         return {
             "ai_score": 0,
-            "ai_reasoning": f"Baholashda xatolik yuz berdi: {str(e)}",
-            "tokens_input": 0,
-            "tokens_output": 0,
-            "cost_usd": 0.0,
+            "feedback": f"Baholashda xatolik yuz berdi: {str(e)}"
         }

@@ -1,10 +1,13 @@
 from fastapi import APIRouter, HTTPException , Depends, Form, Request, status, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from services.llm_evaluator import evaluate_candidate_answers
+from services.google_sheets import sync_candidates_to_sheet
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
-from typing import Optional
-from datetime import datetime
 from pydantic import BaseModel
+from datetime import datetime
+from typing import Optional
+
 
 
 from db.database import get_session
@@ -269,8 +272,8 @@ async def get_candidate_detail(
 
 @router.post("/candidates/{candidate_id}/evaluate")
 async def evaluate_candidate(
-    candidate_id: int,
-    db: Session = Depends(get_session),
+        candidate_id: int,
+        db: Session = Depends(get_session),
 ):
     application = db.get(CandidateApplication, candidate_id)
     if not application:
@@ -279,21 +282,41 @@ async def evaluate_candidate(
             detail=f"CandidateApplication with id {candidate_id} not found",
         )
 
-    score = 0
-    if application.hard_skill_a1:
-        score += 20
-    if application.hard_skill_a2:
-        score += 20
-    if application.soft_skill_a1:
-        score += 20
-    if application.soft_skill_a2:
-        score += 20
-    if application.resume_file_path:
-        score += 20
+    vacancy = db.get(Vacancy, application.vacancy_id)
+    if not vacancy:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Vacancy for this application not found",
+        )
 
-    application.ai_score = score
+    # Bundle questions and answers together so evaluate_candidate_answers can process them precisely
+    answers_dict = {
+        f"Q1 (Hard): {vacancy.generated_hard_skill_q1}": application.hard_skill_a1 or "Bo'sh",
+        f"Q2 (Hard): {vacancy.generated_hard_skill_q2}": application.hard_skill_a2 or "Bo'sh",
+        f"Q3 (Soft): {vacancy.generated_soft_skill_q1}": application.soft_skill_a1 or "Bo'sh",
+        f"Q4 (Soft): {vacancy.generated_soft_skill_q2}": application.soft_skill_a2 or "Bo'sh",
+    }
+
+    try:
+        # Call the existing function from llm_evaluator.py
+        ai_result = await evaluate_candidate_answers(answers_dict)
+
+        ai_score_val = int(ai_result.get("ai_score", 0))
+        ai_feedback = ai_result.get("feedback", "Tahlil tugallanmadi.")
+
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"AI baholashda xatolik yuz berdi: {str(e)}"
+        )
+
+    # Update application records with AI scores and feedback
+    application.ai_score = ai_score_val
+    application.ai_reasoning = ai_feedback  # Saves the savage feedback so HR can view it
+    application.total_score = (application.objective_score or 0) + ai_score_val
     application.status = ApplicationStatus.PENDING
     application.stage = InterviewStage.HR_VERIFICATION
+
     db.add(application)
     db.commit()
     db.refresh(application)
@@ -303,7 +326,8 @@ async def evaluate_candidate(
             "status": "success",
             "message": "AI baholash yakunlandi.",
             "candidate_id": candidate_id,
-            "score": score,
+            "score": ai_score_val,
+            "feedback": ai_feedback,
         }
     )
 
@@ -533,3 +557,45 @@ async def schedule_candidate(
         )
 
     return {"status": "success", "message": f"Uchrashuv muvaffaqiyatli belgilandi ({payload.stage})."}
+
+
+@router.post("/sync-sheets", response_class=JSONResponse)
+async def sync_sheets_endpoint(
+        db: Session = Depends(get_session)
+):
+    try:
+        # Fetch all candidate applications
+        applications = db.exec(select(CandidateApplication)).all()
+
+        candidates_data = []
+        for app in applications:
+            # Resolve relational data for the sync payload
+            user = db.get(User, app.user_id)
+            vacancy = db.get(Vacancy, app.vacancy_id)
+
+            # Format status safely based on Enum structure
+            status_val = app.status.value if hasattr(app.status, "value") else str(app.status)
+
+            candidates_data.append({
+                "full_name": user.full_name if user and user.full_name else "Noma'lum nomzod",
+                "phone_number": user.phone_number if user and user.phone_number else "-",
+                "vacancy_title": vacancy.title if vacancy else "-",
+                "base_score": app.objective_score or 0,
+                "ai_score": app.ai_score or 0,
+                "total_score": app.total_score or 0,
+                "status": status_val
+            })
+
+        # Push to Google Sheets asynchronously
+        synced_rows = await sync_candidates_to_sheet(candidates_data)
+
+        return {
+            "status": "success",
+            "message": "Ma'lumotlar Google Sheets-ga muvaffaqiyatli sinxronizatsiya qilindi.",
+            "synced_rows": synced_rows
+        }
+
+    except FileNotFoundError as e:
+        raise HTTPException(status_code=500, detail="Google Sheets credentials topilmadi.")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Sinxronizatsiyada xatolik yuz berdi: {str(e)}")
