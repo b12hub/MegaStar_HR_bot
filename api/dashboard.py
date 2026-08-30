@@ -1,13 +1,23 @@
 from fastapi import APIRouter, HTTPException , Depends, Form, Request, status, BackgroundTasks
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from services.llm_evaluator import evaluate_candidate_answers
-from services.google_sheets import sync_candidates_to_sheet
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime
 from typing import Optional
 
+
+# Services
+from services.zoom_service import create_zoom_meeting
+from services.notifications import notify_candidate_status
+from services.llm_evaluator import evaluate_candidate_answers, generate_vacancy_questions
+from services.google_sheets import sync_candidates_to_sheet
+
+class ScheduleRequest(BaseModel):
+    stage: str
+    meeting_time: str
+    branch_name: Optional[str] = None
+    meeting_link: Optional[str] = None
 
 
 from db.database import get_session
@@ -24,8 +34,7 @@ from db.models import (
     PipelineStage,
 )
 
-from services.llm_evaluator import generate_vacancy_questions
-from services.notifications import notify_candidate_status
+
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -479,85 +488,150 @@ class ScheduleRequest(BaseModel):
     meeting_time: datetime
     meeting_link: Optional[str] = None
 
-@router.post("/candidates/{candidate_id}/reject")
-async def reject_candidate(
-    candidate_id: int,
-    background_tasks: BackgroundTasks,
-    stage: str = "initial",
-    db: Session = Depends(get_session)
-):
-    candidate = db.get(CandidateApplication, candidate_id)
-    if not candidate:
-        raise HTTPException(status_code=404, detail="Nomzod topilmadi")
-
-    # Update candidate status
-    candidate.status = ApplicationStatus.REJECTED
-    candidate.pipeline_stage = "RAD_ETILDI"  # Stored as string to prevent Enum lookup errors
-    db.add(candidate)
-    db.commit()
-
-    # Trigger Telegram Notification
-    user = db.get(User, candidate.user_id)
-    if user and user.telegram_id:
-        msg_type = "cancel_initial" if stage == "initial" else "cancel_after_meeting"
-        background_tasks.add_task(notify_candidate_status, user.telegram_id, msg_type)
-
-    return {"status": "success", "message": "Nomzod arizasi rad etildi va xabarnoma yuborildi."}
-
 
 @router.post("/candidates/{candidate_id}/schedule")
 async def schedule_candidate(
-    candidate_id: int,
-    payload: ScheduleRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_session)
+        candidate_id: int,
+        payload: ScheduleRequest,
+        background_tasks: BackgroundTasks,
+        db: Session = Depends(get_session)
 ):
     candidate = db.get(CandidateApplication, candidate_id)
     if not candidate:
-        raise HTTPException(status_code=404, detail="Nomzod topilmadi")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nomzod topilmadi")
 
-    # Determine message type and mapped string for pipeline_stage
-    msg_type = ""
+    user = db.get(User, candidate.user_id)
+    telegram_id = user.telegram_id if user else None
+
+    # Safely parse meeting time string or datetime object[cite: 27]
+    try:
+        if isinstance(payload.meeting_time, str):
+            parsed_dt = datetime.fromisoformat(payload.meeting_time.replace("Z", "+00:00"))
+        else:
+            parsed_dt = payload.meeting_time
+        meeting_time_str = parsed_dt.strftime("%Y-%m-%d %H:%M")
+    except ValueError:
+        # Fallback in case of unexpected string formats[cite: 27]
+        parsed_dt = datetime.utcnow()
+        meeting_time_str = str(payload.meeting_time)
+
+    final_meeting_link = payload.meeting_link
+
+    # 3-Tier Dynamic Dispatch Logic[cite: 27]
     if payload.stage == "hr_online":
         candidate.pipeline_stage = "HR_ONLINE"
-        msg_type = "accept_1st_meeting"
+
+        # Trigger Zoom Meeting Creation[cite: 27]
+        try:
+            candidate_name = user.full_name if (user and user.full_name) else f"Nomzod #{candidate_id}"
+            zoom_data = await create_zoom_meeting(
+                topic=f"HR Suhbat: {candidate_name}",
+                start_time=parsed_dt.isoformat()
+            )
+            final_meeting_link = zoom_data.get("join_url")
+        except Exception as e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Zoom uchrashuvi yaratishda xatolik yuz berdi: {str(e)}"
+            )
+
+        if telegram_id:
+            background_tasks.add_task(
+                notify_candidate_status,
+                telegram_id=telegram_id,
+                msg_type="accept_1st_meeting",
+                meeting_link_or_loc=final_meeting_link,
+                meeting_time=meeting_time_str
+            )
+
     elif payload.stage == "hr_offline":
         candidate.pipeline_stage = "HR_OFFLINE"
-        msg_type = "accept_2nd_meeting"
+        if telegram_id:
+            background_tasks.add_task(
+                notify_candidate_status,
+                telegram_id=telegram_id,
+                msg_type="accept_2nd_meeting",
+                meeting_link_or_loc=final_meeting_link,
+                meeting_time=meeting_time_str,
+                branch_name=payload.branch_name
+            )
+
     elif payload.stage == "director_offline":
         candidate.pipeline_stage = "DIRECTOR_OFFLINE"
-        msg_type = "accept_boss_meeting"
+        if telegram_id:
+            background_tasks.add_task(
+                notify_candidate_status,
+                telegram_id=telegram_id,
+                msg_type="accept_boss_meeting",
+                meeting_link_or_loc=final_meeting_link,
+                meeting_time=meeting_time_str,
+                branch_name=payload.branch_name
+            )
     else:
-        raise HTTPException(status_code=400, detail="Noto'g'ri bosqich tanlandi.")
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Noto'g'ri bosqich tanlandi."
+        )
 
+    # Persist Candidate Application updates[cite: 27]
+    candidate.status = ApplicationStatus.PENDING
     db.add(candidate)
 
-    # Save a new Meeting record
+    # Persist Meeting Audit Log[cite: 27]
     new_meeting = Meeting(
         candidate_id=candidate.id,
         stage=candidate.pipeline_stage,
-        meeting_time=payload.meeting_time,
-        meeting_link=payload.meeting_link,
+        meeting_time=parsed_dt,
+        meeting_link=final_meeting_link,
         is_completed=False,
         reminders_sent=0,
     )
     db.add(new_meeting)
     db.commit()
 
-    # Trigger Telegram Notification
+    return {
+        "status": "success",
+        "message": f"Uchrashuv muvaffaqiyatli belgilandi ({payload.stage}).",
+        "zoom_url": final_meeting_link if payload.stage == "hr_online" else None
+    }
+
+@router.post("/candidates/{candidate_id}/reject")
+async def reject_candidate(
+        candidate_id: int,
+        background_tasks: BackgroundTasks,
+        db: Session = Depends(get_session)
+):
+    candidate = db.get(CandidateApplication, candidate_id)
+    if not candidate:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nomzod topilmadi")
+
+    # Determine message type based on current stage
+    current_stage = str(candidate.pipeline_stage).upper() if candidate.pipeline_stage else ""
+
+    if current_stage in ["NEW", "TEST_SUBMITTED", "INITIAL", ""]:
+        msg_type = "cancel_initial"
+    else:
+        msg_type = "cancel_after_meeting"
+
+    # Update candidate status in database
+    candidate.status = ApplicationStatus.REJECTED
+    candidate.pipeline_stage = "RAD_ETILDI"
+    db.add(candidate)
+    db.commit()
+
+    # Trigger Telegram Notification via Background Task
     user = db.get(User, candidate.user_id)
     if user and user.telegram_id:
-        formatted_time = payload.meeting_time.strftime('%Y-%m-%d %H:%M')
         background_tasks.add_task(
             notify_candidate_status,
-            user.telegram_id,
-            msg_type,
-            payload.meeting_link,
-            formatted_time
+            telegram_id=user.telegram_id,
+            msg_type=msg_type
         )
 
-    return {"status": "success", "message": f"Uchrashuv muvaffaqiyatli belgilandi ({payload.stage})."}
-
+    return {
+        "status": "success",
+        "message": "Nomzod arizasi rad etildi va tegishli xabarnoma navbatga qo'shildi."
+    }
 
 @router.post("/sync-sheets", response_class=JSONResponse)
 async def sync_sheets_endpoint(
