@@ -242,11 +242,11 @@
 
                     <div class="flex items-start">
                         <div class="flex items-center h-5">
-                            <input id="regenerate_ai" name="regenerate_ai" type="checkbox" value="true"
+                            <input id="regenerate_ai_prompt" name="regenerate_ai" type="checkbox" value="true"
                                    class="w-4 h-4 text-blue-600 bg-white border-blue-300 rounded focus:ring-blue-500 cursor-pointer">
                         </div>
                         <div class="ml-3 text-sm">
-                            <label for="regenerate_ai" class="font-bold text-blue-950 text-xs cursor-pointer">
+                            <label for="regenerate_ai_prompt" class="font-bold text-blue-950 text-xs cursor-pointer">
                                 Ushbu prompt bo'yicha AI savollarini qayta generatsiya qilish
                             </label>
                         </div>
@@ -274,6 +274,7 @@
             const btnSpinner = document.getElementById('btnSpinner');
             const spinnerText = document.getElementById('spinnerText');
             const regenerateAiCheckbox = document.getElementById('regenerate_ai');
+            const regenerateAiPromptCheckbox = document.getElementById('regenerate_ai_prompt');
 
             if (form && submitBtn) {
                 form.addEventListener('submit', function() {
@@ -281,7 +282,8 @@
                         submitBtn.classList.add('opacity-80', 'cursor-not-allowed');
                         btnText.classList.add('hidden');
                         btnSpinner.classList.remove('hidden');
-                        if (regenerateAiCheckbox && regenerateAiCheckbox.checked) {
+                        const regenerateChecked = (regenerateAiCheckbox && regenerateAiCheckbox.checked) || (regenerateAiPromptCheckbox && regenerateAiPromptCheckbox.checked);
+                        if (regenerateChecked) {
                             spinnerText.textContent = "AI Savollar qayta generatsiya qilinmoqda...";
                         } else {
                             spinnerText.textContent = "Saqlanmoqda...";

@@ -7,18 +7,12 @@
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
 <body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans antialiased">
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex justify-between items-center h-16">
-                <div class="flex items-center">
-                    <span class="text-2xl font-black italic text-black">Mega</span><span class="text-2xl font-black italic text-black">Star</span><span class="text-2xl text-red-600">★</span>
-                    <span class="text-lg font-normal text-gray-500 ml-2">HR Portal</span>
-                </div>
-                <a href="/dashboard/hr" class="text-sm font-medium text-gray-600 hover:text-red-600 transition flex items-center">
-                    ← Orqaga
-                </a>
-            </div>
-        </div>
+    <!-- Official Brand Header -->
+    <header class="brand-header flex items-center justify-between px-4 py-3.5 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
+        <a href="/dashboard/hr" class="flex items-center">
+            <img src="/static/images/logo.png" alt="Mega Star" class="h-28 sm:h-32 w-auto object-contain" onerror="this.onerror=null; this.src='/static/images/megastar.jpeg';">
+        </a>
+        <a href="/dashboard/hr" class="text-sm font-medium text-gray-600 hover:text-red-600 transition flex items-center">← Orqaga</a>
     </header>
 
     <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
