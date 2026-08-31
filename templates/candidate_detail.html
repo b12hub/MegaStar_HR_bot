@@ -3,6 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.tailwindcss.com; object-src 'none';">-->
     <title>Nomzod Ma'lumotlari - {{ user.full_name if user else 'Nomzod' }}</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link rel="stylesheet" href="/static/css/style.css">
@@ -355,7 +356,8 @@
             <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
                 <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
                     <h3 class="text-lg leading-6 font-extrabold text-gray-900 mb-4" id="modal-title">Uchrashuv belgilash</h3>
-                    <form id="scheduleForm" class="space-y-4">
+                    <!-- Halt default HTML submission directly at the DOM level -->
+                    <form id="scheduleForm" class="space-y-4" onsubmit="event.preventDefault();">
                         <div>
                             <label class="block text-sm font-bold text-gray-700 mb-1">Keyingi Bosqich</label>
                             <!-- Updated Dropdown Options -->
@@ -495,8 +497,14 @@
                                 method: 'POST',
                                 headers: {'Accept': 'application/json'}
                             });
-                            if(res.ok) window.location.reload();
+
+                            // FIXED: Added success feedback and page reload
+                            if(res.ok) {
+                                alert("Muvaffaqiyatli saqlandi!");
+                                window.location.reload();
+                            }
                             else alert('Xatolik yuz berdi.');
+
                         } catch(err) {
                             console.error(err);
                             alert('Tarmoq xatosi.');
@@ -508,18 +516,26 @@
 
             // Schedule Logic
             if(submitScheduleBtn) {
-                submitScheduleBtn.addEventListener('click', async () => {
+                submitScheduleBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+
                     const form = document.getElementById('scheduleForm');
                     if(!form.checkValidity()) {
                         form.reportValidity();
                         return;
                     }
 
-                    // Construct payload for FastAPI
+                    // Capture the branch once to avoid redundant DOM lookups
+                    const selectedBranch = branchSelect.value || null;
+
+                    // Send multiple alias keys to ensure the FastAPI schema catches the value
+                    // whether it is expecting 'branch_name', 'location', or 'meeting_link_or_loc'
                     const payload = {
                         stage: stageSelect.value,
                         meeting_time: document.getElementById('meetingTime').value,
-                        branch_name: branchSelect.value || null
+                        branch_name: selectedBranch,
+                        location: selectedBranch,
+                        meeting_link_or_loc: selectedBranch
                     };
 
                     submitScheduleBtn.disabled = true;
@@ -535,11 +551,19 @@
                             body: JSON.stringify(payload)
                         });
 
-                        if(res.ok) window.location.reload();
-                        else alert('Xatolik yuz berdi.');
+                        // FIXED: Hide modal, alert success, and reload page
+                        if(res.ok) {
+                            modal.classList.add('hidden'); // Hide the scheduling modal
+                            alert("Muvaffaqiyatli saqlandi!");
+                            window.location.reload();
+                        } else {
+                            const errorData = await res.json().catch(() => ({}));
+                            console.error("Server Error Payload:", errorData);
+                            alert(`Xatolik yuz berdi: ${errorData.detail || 'Noma\'lum xato'}`);
+                        }
                     } catch(err) {
-                        console.error(err);
-                        alert('Tarmoq xatosi.');
+                        console.error("Network Fetch Error:", err);
+                        alert('Tarmoq xatosi yoki server bilan aloqa uzildi.');
                     } finally {
                         submitScheduleBtn.disabled = false;
                         submitScheduleBtn.innerText = 'Belgilash';

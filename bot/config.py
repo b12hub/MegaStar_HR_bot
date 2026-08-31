@@ -1,3 +1,4 @@
+from pydantic import Field, AliasChoices
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from typing import Optional
 
@@ -11,7 +12,10 @@ class Settings(BaseSettings):
     DATABASE_URL: str = "postgresql://postgres:postgres@localhost:5432/megastar_hr"
 
     # Telegram Bot
-    BOT_TOKEN: str = "dummy_token"
+    BOT_TOKEN: str = Field(
+        default="dummy_token",
+        validation_alias=AliasChoices("TELEGRAM_BOT_TOKEN", "BOT_TOKEN")
+    )
     HR_NOTIFICATION_CHAT_ID: Optional[int] = None
     DIRECTOR_NOTIFICATION_CHAT_ID: Optional[int] = None
 

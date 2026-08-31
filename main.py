@@ -10,6 +10,10 @@ from bot.main import bot, dp
 from db.database import init_db
 from seed import seed_vacancies_if_needed
 
+import os
+from dotenv import load_dotenv
+load_dotenv()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -28,11 +32,21 @@ app.include_router(dashboard.router)
 app.mount('/static', StaticFiles(directory='static'), name='static')
 app.mount('/uploads', StaticFiles(directory='uploads'), name='uploads')
 
+
+# Combined Middleware for all custom headers
 @app.middleware("http")
-async def add_ngrok_skip_header(request: Request, call_next):
+async def add_custom_security_headers(request: Request, call_next):
     response = await call_next(request)
+
+    # 1. Ngrok warning bypass
     response.headers["ngrok-skip-browser-warning"] = "true"
+
+    # 2. CSP Fix for Tailwind and unsafe-eval
+    response.headers[
+        "Content-Security-Policy"] = "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.tailwindcss.com; object-src 'none';"
+
     return response
+
 
 async def main():
     # Setup Uvicorn server configuration

@@ -4,7 +4,7 @@ from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime
-from typing import Optional
+from typing import Optional, Union
 
 
 # Services
@@ -15,9 +15,9 @@ from services.google_sheets import sync_candidates_to_sheet
 
 class ScheduleRequest(BaseModel):
     stage: str
-    meeting_time: str
-    branch_name: Optional[str] = None
+    meeting_time: Union[datetime, str]
     meeting_link: Optional[str] = None
+    branch_name: Optional[str] = None
 
 
 from db.database import get_session
@@ -33,6 +33,10 @@ from db.models import (
     Meeting,
     PipelineStage,
 )
+
+
+import logging
+logger = logging.getLogger(__name__)
 
 
 
@@ -483,52 +487,57 @@ async def delete_vacancy(
     return RedirectResponse(url="/dashboard/hr", status_code=status.HTTP_303_SEE_OTHER)
 
 
-class ScheduleRequest(BaseModel):
-    stage: str
-    meeting_time: datetime
-    meeting_link: Optional[str] = None
-
-
 @router.post("/candidates/{candidate_id}/schedule")
 async def schedule_candidate(
-        candidate_id: int,
-        payload: ScheduleRequest,
-        background_tasks: BackgroundTasks,
-        db: Session = Depends(get_session)
+    candidate_id: int,
+    payload: ScheduleRequest,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_session)
 ):
     candidate = db.get(CandidateApplication, candidate_id)
     if not candidate:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nomzod topilmadi")
 
     user = db.get(User, candidate.user_id)
-    telegram_id = user.telegram_id if user else None
+    telegram_id = getattr(candidate, "telegram_id", None) or (user.telegram_id if user else None)
 
-    # Safely parse meeting time string or datetime object[cite: 27]
+    if not telegram_id:
+        logger.error(f"Telegram ID is missing for Candidate ID {candidate_id}. Notification will not be sent.")
+
+    # Robust Datetime Parsing
     try:
         if isinstance(payload.meeting_time, str):
             parsed_dt = datetime.fromisoformat(payload.meeting_time.replace("Z", "+00:00"))
-        else:
+        elif isinstance(payload.meeting_time, datetime):
             parsed_dt = payload.meeting_time
+        else:
+            parsed_dt = datetime.utcnow()
         meeting_time_str = parsed_dt.strftime("%Y-%m-%d %H:%M")
-    except ValueError:
-        # Fallback in case of unexpected string formats[cite: 27]
+    except (ValueError, TypeError, AttributeError):
         parsed_dt = datetime.utcnow()
         meeting_time_str = str(payload.meeting_time)
 
     final_meeting_link = payload.meeting_link
 
-    # 3-Tier Dynamic Dispatch Logic[cite: 27]
     if payload.stage == "hr_online":
-        candidate.pipeline_stage = "HR_ONLINE"
-
-        # Trigger Zoom Meeting Creation[cite: 27]
+        candidate.pipeline_stage = PipelineStage.HR_ONLINE
         try:
             candidate_name = user.full_name if (user and user.full_name) else f"Nomzod #{candidate_id}"
+
+            # Pass parsed_dt directly as datetime object
             zoom_data = await create_zoom_meeting(
                 topic=f"HR Suhbat: {candidate_name}",
-                start_time=parsed_dt.isoformat()
+                start_time=parsed_dt
             )
-            final_meeting_link = zoom_data.get("join_url")
+
+            # Handle both dictionary and string return types
+            if isinstance(zoom_data, dict):
+                final_meeting_link = zoom_data.get("join_url") or zoom_data.get("start_url")
+            elif isinstance(zoom_data, str):
+                final_meeting_link = zoom_data
+            else:
+                final_meeting_link = str(zoom_data)
+
         except Exception as e:
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -545,7 +554,7 @@ async def schedule_candidate(
             )
 
     elif payload.stage == "hr_offline":
-        candidate.pipeline_stage = "HR_OFFLINE"
+        candidate.pipeline_stage = PipelineStage.HR_OFFLINE
         if telegram_id:
             background_tasks.add_task(
                 notify_candidate_status,
@@ -553,11 +562,11 @@ async def schedule_candidate(
                 msg_type="accept_2nd_meeting",
                 meeting_link_or_loc=final_meeting_link,
                 meeting_time=meeting_time_str,
-                branch_name=payload.branch_name
+                branch_name=getattr(payload, "branch_name", None)
             )
 
     elif payload.stage == "director_offline":
-        candidate.pipeline_stage = "DIRECTOR_OFFLINE"
+        candidate.pipeline_stage = PipelineStage.DIRECTOR_OFFLINE
         if telegram_id:
             background_tasks.add_task(
                 notify_candidate_status,
@@ -565,7 +574,7 @@ async def schedule_candidate(
                 msg_type="accept_boss_meeting",
                 meeting_link_or_loc=final_meeting_link,
                 meeting_time=meeting_time_str,
-                branch_name=payload.branch_name
+                branch_name=getattr(payload, "branch_name", None)
             )
     else:
         raise HTTPException(
@@ -573,11 +582,9 @@ async def schedule_candidate(
             detail="Noto'g'ri bosqich tanlandi."
         )
 
-    # Persist Candidate Application updates[cite: 27]
     candidate.status = ApplicationStatus.PENDING
     db.add(candidate)
 
-    # Persist Meeting Audit Log[cite: 27]
     new_meeting = Meeting(
         candidate_id=candidate.id,
         stage=candidate.pipeline_stage,
@@ -595,42 +602,40 @@ async def schedule_candidate(
         "zoom_url": final_meeting_link if payload.stage == "hr_online" else None
     }
 
+
 @router.post("/candidates/{candidate_id}/reject")
 async def reject_candidate(
-        candidate_id: int,
-        background_tasks: BackgroundTasks,
-        db: Session = Depends(get_session)
+    candidate_id: int,
+    background_tasks: BackgroundTasks,
+    db: Session = Depends(get_session)
 ):
     candidate = db.get(CandidateApplication, candidate_id)
     if not candidate:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nomzod topilmadi")
 
-    # Determine message type based on current stage
     current_stage = str(candidate.pipeline_stage).upper() if candidate.pipeline_stage else ""
+    msg_type = "cancel_initial" if current_stage in ["NEW", "TEST_SUBMITTED", "INITIAL", "YANGI", ""] else "cancel_after_meeting"
 
-    if current_stage in ["NEW", "TEST_SUBMITTED", "INITIAL", ""]:
-        msg_type = "cancel_initial"
-    else:
-        msg_type = "cancel_after_meeting"
-
-    # Update candidate status in database
     candidate.status = ApplicationStatus.REJECTED
-    candidate.pipeline_stage = "RAD_ETILDI"
+    candidate.pipeline_stage = PipelineStage.RAD_ETILDI
     db.add(candidate)
     db.commit()
 
-    # Trigger Telegram Notification via Background Task
     user = db.get(User, candidate.user_id)
-    if user and user.telegram_id:
+    telegram_id = getattr(candidate, "telegram_id", None) or (user.telegram_id if user else None)
+
+    if telegram_id:
         background_tasks.add_task(
             notify_candidate_status,
-            telegram_id=user.telegram_id,
+            telegram_id=telegram_id,
             msg_type=msg_type
         )
+    else:
+        logger.error(f"Telegram ID is missing for Candidate ID {candidate_id}. Rejection notification skipped.")
 
     return {
         "status": "success",
-        "message": "Nomzod arizasi rad etildi va tegishli xabarnoma navbatga qo'shildi."
+        "message": "Nomzod arizasi rad etildi."
     }
 
 @router.post("/sync-sheets", response_class=JSONResponse)

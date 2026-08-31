@@ -29,12 +29,12 @@ class InterviewStage(str, Enum):
 
 
 class PipelineStage(str, enum.Enum):
-    YANGI = "yangi"
-    HR_ONLINE = "hr_online"
-    HR_OFFLINE = "hr_offline"
-    DIRECTOR_OFFLINE = "director_offline"
-    RAD_ETILDI = "rad_etildi"
-    QABUL_QILINDI = "qabul_qilindi"
+    YANGI = "YANGI"
+    HR_ONLINE = "HR_ONLINE"
+    HR_OFFLINE = "HR_OFFLINE"
+    DIRECTOR_OFFLINE = "DIRECTOR_OFFLINE"
+    RAD_ETILDI = "RAD_ETILDI"
+    QABUL_QILINDI = "QABUL_QILINDI"
 
 
 class LLMActionType(str, Enum):
