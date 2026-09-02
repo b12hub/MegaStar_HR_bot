@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>{% block title %}Mega Star HR Portal{% endblock %}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 font-sans antialiased min-h-screen">
+
+  <!-- Brand Header -->
+  <header class="brand-header flex items-center justify-between px-4 py-3.5 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
+    <a href="/dashboard/hr" class="flex items-center">
+      <img src="/static/images/logo.png" alt="Mega Star" class="h-28 sm:h-32 w-auto object-contain" onerror="this.onerror=null; this.src='/static/images/megastar.jpeg';">
+    </a>
+    <span class="badge bg-red-50 text-red-600 text-xs font-semibold px-2.5 py-1 rounded-full border border-red-100">Karierangizni Boshlang</span>
+  </header>
+
+  <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6">
+    <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+
+      <!-- Sidebar -->
+      {% set path = request.url.path %}
+      <aside class="md:col-span-1 bg-white rounded-xl border border-gray-200 p-4 sticky top-20 self-start">
+        <nav class="space-y-2">
+          <a href="/dashboard/vacancies/new" class="block px-3 py-2 rounded-lg text-sm font-semibold {% if path.startswith('/dashboard/vacancies/new') %}bg-gray-100 text-red-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">Yangi Vakansiya Yaratish</a>
+          <a href="/dashboard/hr" class="block px-3 py-2 rounded-lg text-sm font-semibold {% if path == '/dashboard/hr' %}bg-gray-100 text-red-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">Vakansiyalar ro'yxati</a>
+          <a href="/dashboard/candidates/board" class="block px-3 py-2 rounded-lg text-sm font-semibold {% if path.startswith('/dashboard/candidates') %}bg-gray-100 text-red-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">Nomzodlar</a>
+          <a href="/dashboard/meetings" class="block px-3 py-2 rounded-lg text-sm font-semibold {% if path.startswith('/dashboard/meetings') %}bg-gray-100 text-red-600{% else %}text-gray-700 hover:bg-gray-50{% endif %}">Uchrashuvlar</a>
+        </nav>
+      </aside>
+
+      <!-- Main content -->
+      <main class="md:col-span-3">
+        {% block content %}{% endblock %}
+      </main>
+
+    </div>
+  </div>
+
+  <footer class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 text-center text-xs text-gray-400">
+    &copy; 2026 Mega Star. Barcha huquqlar himoyalangan.
+  </footer>
+</body>
+</html>

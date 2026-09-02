@@ -1,25 +1,49 @@
 import asyncio
+import os
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI , Request
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from dotenv import load_dotenv
+from fastapi import FastAPI, Request
 from fastapi.staticfiles import StaticFiles
+
 from api import dashboard, webapp
+from api.meetings import router as meetings_router
 from api.portal import router as hr_router
 from bot.main import bot, dp
 from db.database import init_db
 from seed import seed_vacancies_if_needed
 
-import os
-from dotenv import load_dotenv
 load_dotenv()
+
+scheduler = AsyncIOScheduler()
+
+
+def register_scheduler_jobs(scheduler_instance: AsyncIOScheduler) -> None:
+#     """Register periodic jobs, including reminder checks for upcoming meetings."""
+#     # Example: every 5 minutes, scan meetings in the next hour and send reminders to candidates.
+#     scheduler_instance.add_job(
+#         send_meeting_reminders,
+#         "interval",
+#         minutes=300,
+#         id="meeting-reminders",
+#         replace_existing=True,
+#     )
+    pass
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
     seed_vacancies_if_needed()
-    yield
+    register_scheduler_jobs(scheduler)
+    scheduler.start()
+    try:
+        yield
+    finally:
+        scheduler.shutdown(wait=False)
+
 
 app = FastAPI(title="Mega Star HR Portal", lifespan=lifespan)
 
@@ -27,33 +51,27 @@ app = FastAPI(title="Mega Star HR Portal", lifespan=lifespan)
 app.include_router(hr_router)
 app.include_router(webapp.router)
 app.include_router(dashboard.router)
+app.include_router(meetings_router)
 
 # Serve static files and uploaded CVs
 app.mount('/static', StaticFiles(directory='static'), name='static')
 app.mount('/uploads', StaticFiles(directory='uploads'), name='uploads')
 
 
-# Combined Middleware for all custom headers
 @app.middleware("http")
 async def add_custom_security_headers(request: Request, call_next):
     response = await call_next(request)
-
-    # 1. Ngrok warning bypass
     response.headers["ngrok-skip-browser-warning"] = "true"
-
-    # 2. CSP Fix for Tailwind and unsafe-eval
     response.headers[
-        "Content-Security-Policy"] = "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.tailwindcss.com; object-src 'none';"
-
+        "Content-Security-Policy"
+    ] = "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.tailwindcss.com; object-src 'none';"
     return response
 
 
 async def main():
-    # Setup Uvicorn server configuration
     config = uvicorn.Config(app, host="0.0.0.0", port=8000, log_level="info")
     server = uvicorn.Server(config)
 
-    # Run FastAPI and Telegram Bot polling concurrently
     await asyncio.gather(
         server.serve(),
         dp.start_polling(bot),

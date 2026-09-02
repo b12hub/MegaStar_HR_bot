@@ -1,9 +1,9 @@
-from fastapi import APIRouter, HTTPException , Depends, Form, Request, status, BackgroundTasks
+from fastapi import APIRouter, HTTPException , Depends, Form, Request, status, BackgroundTasks, Query
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
 from pydantic import BaseModel
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, Union
 
 
@@ -25,6 +25,7 @@ from db.models import (
     ApplicationStatus,
     Branch,
     CandidateApplication,
+    CandidateStage,
     InterviewStage,
     LLMActionType,
     LLMUsageLog,
@@ -43,6 +44,139 @@ logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 templates = Jinja2Templates(directory="templates")
+
+
+@router.get("/candidates", response_class=HTMLResponse)
+async def redirect_candidates_list(
+    request: Request,
+    db: Session = Depends(get_session),
+):
+    """Legacy alias: redirect the old /dashboard/candidates route to the kanban board."""
+    return RedirectResponse(url="/dashboard/candidates/board", status_code=status.HTTP_303_SEE_OTHER)
+
+
+@router.get("/candidates/board", response_class=HTMLResponse)
+async def get_candidate_board(
+    request: Request,
+    vacancy_id: Optional[int] = Query(None),
+    db: Session = Depends(get_session),
+):
+    """Render the candidate kanban board while keeping the route compatible with omitted query params."""
+    statement = select(CandidateApplication)
+    if vacancy_id is not None:
+        statement = statement.where(CandidateApplication.vacancy_id == vacancy_id)
+
+    applications = db.exec(statement.order_by(CandidateApplication.created_at.desc())).all()
+
+    ordered_stages = [
+        CandidateStage.NEW,
+        CandidateStage.SCREENED_BY_BOT,
+        CandidateStage.INTERVIEW_SCHEDULED,
+        CandidateStage.OFFERED,
+        CandidateStage.REJECTED,
+    ]
+    stage_labels = {
+        CandidateStage.NEW: "Yangi",
+        CandidateStage.SCREENED_BY_BOT: "Bot tomonidan saralangan",
+        CandidateStage.INTERVIEW_SCHEDULED: "Suhbat belgilangan",
+        CandidateStage.OFFERED: "Taklif qilingan",
+        CandidateStage.REJECTED: "Rad etilgan",
+    }
+
+    board = {stage.value: [] for stage in ordered_stages}
+    unknown = []
+    for app in applications:
+        raw_stage = app.stage
+        if raw_stage is None:
+            stage = CandidateStage.NEW
+        elif isinstance(raw_stage, CandidateStage):
+            stage = raw_stage
+        else:
+            try:
+                stage = CandidateStage(raw_stage)
+            except ValueError:
+                stage = None
+
+        if stage is None:
+            unknown.append({
+                "id": app.id,
+                "full_name": (db.get(User, app.user_id).full_name if db.get(User, app.user_id) else "Noma'lum nomzod"),
+                "phone_number": (db.get(User, app.user_id).phone_number if db.get(User, app.user_id) else "-"),
+                "vacancy_title": (db.get(Vacancy, app.vacancy_id).title if db.get(Vacancy, app.vacancy_id) else "-"),
+                "created_at": app.created_at,
+                "status": str(app.status),
+            })
+            continue
+
+        app_data = {
+            "id": app.id,
+            "full_name": (db.get(User, app.user_id).full_name if db.get(User, app.user_id) else "Noma'lum nomzod"),
+            "phone_number": (db.get(User, app.user_id).phone_number if db.get(User, app.user_id) else "-"),
+            "vacancy_title": (db.get(Vacancy, app.vacancy_id).title if db.get(Vacancy, app.vacancy_id) else "-"),
+            "created_at": app.created_at,
+            "status": (app.status.value if hasattr(app.status, "value") else str(app.status)),
+        }
+        if stage.value not in board:
+            board[stage.value] = []
+        board[stage.value].append(app_data)
+
+    board_payload = []
+    for stage in ordered_stages:
+        board_payload.append({
+            "key": stage.value,
+            "label": stage_labels.get(stage, stage.value.replace("_", " ").title()),
+            "items": board.get(stage.value, []),
+        })
+    if unknown:
+        board_payload.append({
+            "key": "unknown",
+            "label": "Noma'lum / yangi",
+            "items": unknown,
+        })
+
+    return templates.TemplateResponse(
+        request=request,
+        name="candidate_board.html",
+        context={
+            "request": request,
+            "board": board_payload,
+            "vacancy_id": vacancy_id,
+        },
+    )
+
+
+@router.get("/meetings", response_class=HTMLResponse)
+async def get_meetings_page(
+    request: Request,
+    db: Session = Depends(get_session),
+):
+    """Render the meetings dashboard page without filtering out records by accidental user constraints."""
+    meetings = db.exec(
+        select(Meeting)
+        .order_by(Meeting.scheduled_time.is_(None), Meeting.scheduled_time.asc())
+    ).all()
+
+    serialized = []
+    for meeting in meetings:
+        user = db.get(User, db.get(CandidateApplication, meeting.candidate_id).user_id) if db.get(CandidateApplication, meeting.candidate_id) else None
+        candidate_name = user.full_name if user and user.full_name else "Noma'lum nomzod"
+        vacancy = db.get(Vacancy, meeting.vacancy_id) if meeting.vacancy_id else None
+        serialized.append({
+            "id": meeting.id,
+            "candidate_name": candidate_name,
+            "vacancy_title": vacancy.title if vacancy else "-",
+            "scheduled_time": meeting.scheduled_time or meeting.meeting_time,
+            "status": str(meeting.status or "scheduled"),
+        })
+
+    return templates.TemplateResponse(
+        request=request,
+        name="meetings.html",
+        context={
+            "request": request,
+            "meetings": serialized,
+        },
+    )
 
 
 @router.get("/hr", response_class=HTMLResponse)
@@ -511,10 +645,12 @@ async def schedule_candidate(
         elif isinstance(payload.meeting_time, datetime):
             parsed_dt = payload.meeting_time
         else:
-            parsed_dt = datetime.utcnow()
+            parsed_dt = datetime.now(timezone.utc)
+        if parsed_dt.tzinfo is None:
+            parsed_dt = parsed_dt.replace(tzinfo=timezone.utc)
         meeting_time_str = parsed_dt.strftime("%Y-%m-%d %H:%M")
     except (ValueError, TypeError, AttributeError):
-        parsed_dt = datetime.utcnow()
+        parsed_dt = datetime.now(timezone.utc)
         meeting_time_str = str(payload.meeting_time)
 
     final_meeting_link = payload.meeting_link

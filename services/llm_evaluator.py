@@ -1,11 +1,16 @@
 import json
+import logging
 import os
-from typing import Any, Dict , Union
+from typing import Any, Dict, Optional, Union
+
 from dotenv import load_dotenv
+from fastapi import BackgroundTasks
 from openai import AsyncOpenAI
 from pydantic import BaseModel
 
 load_dotenv()
+
+logger = logging.getLogger(__name__)
 
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
 OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
@@ -13,10 +18,9 @@ OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "https://openrouter.ai/api/v1")
 client = AsyncOpenAI(
     api_key=OPENAI_API_KEY,
     base_url=OPENAI_BASE_URL or "https://openrouter.ai/api/v1",
+    timeout=30.0,
 )
 
-# Pricing for gpt-4o-mini
-# $0.15 per 1,000,000 input tokens, $0.60 per 1,000,000 output tokens
 INPUT_COST_PER_MILLION = 0.15
 OUTPUT_COST_PER_MILLION = 0.60
 
@@ -28,11 +32,17 @@ class VacancyQuestionsSchema(BaseModel):
     soft_skill_q2: str
 
 
+class EvaluationScoreSchema(BaseModel):
+    ai_score: int
+    feedback: str
 
-async def generate_vacancy_questions(title: str, description: str) -> Dict[str, Any]:
-    """Generates vacancy questions..."""
 
-    # 1. ONLY the Question Generation Prompt goes here
+async def generate_vacancy_questions(
+    title: str,
+    description: str,
+    background_tasks: Optional[BackgroundTasks] = None,
+) -> Dict[str, Any]:
+    """Generate vacancy questions. The function accepts FastAPI BackgroundTasks and safely falls back if the upstream LLM fails."""
     system_prompt = (
         "Siz malakali HR mutaxassisisiz. Berilgan vakansiya lavozimi va tavsifi asosida "
         "nomzodlar uchun O'zbek tilida 2 ta hard-skill (kasbiy ko'nikmalar bo'yicha) va "
@@ -48,48 +58,57 @@ async def generate_vacancy_questions(title: str, description: str) -> Dict[str, 
 
     user_prompt = f"Vakansiya lavozimi (Title): {title}\nVakansiya tavsifi (Description): {description}"
 
-    response = await client.beta.chat.completions.parse(
-        model="gpt-4o-mini",
-        messages=[
-            {"role": "system", "content": system_prompt},
-            {"role": "user", "content": user_prompt},
-        ],
-        response_format=VacancyQuestionsSchema,
-        temperature=0.7,
-    )
+    try:
+        response = await client.beta.chat.completions.parse(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": user_prompt},
+            ],
+            response_format=VacancyQuestionsSchema,
+            temperature=0.7,
+        )
 
-    parsed_questions = response.choices[0].message.parsed
-    if parsed_questions is not None:
-        questions_dict = parsed_questions.model_dump()
-    else:
-        # Fallback if raw text returned
-        content = response.choices[0].message.content or "{}"
-        questions_dict = json.loads(content)
+        parsed_questions = response.choices[0].message.parsed
+        questions_dict = (
+            parsed_questions.model_dump()
+            if parsed_questions is not None
+            else json.loads(response.choices[0].message.content or "{}")
+        )
 
-    tokens_input = response.usage.prompt_tokens if response.usage else 0
-    tokens_output = response.usage.completion_tokens if response.usage else 0
+        tokens_input = response.usage.prompt_tokens if response.usage else 0
+        tokens_output = response.usage.completion_tokens if response.usage else 0
+        cost_usd = (tokens_input * INPUT_COST_PER_MILLION / 1_000_000) + (
+            tokens_output * OUTPUT_COST_PER_MILLION / 1_000_000
+        )
 
-    cost_usd = (tokens_input * INPUT_COST_PER_MILLION / 1_000_000) + (
-        tokens_output * OUTPUT_COST_PER_MILLION / 1_000_000
-    )
+        return {
+            "questions": questions_dict,
+            "tokens_input": tokens_input,
+            "tokens_output": tokens_output,
+            "cost_usd": cost_usd,
+        }
+    except Exception as exc:  # noqa: BLE001 - explicit external API boundary
+        logger.exception("LLM vacancy question generation failed: %s", exc)
+        fallback = {
+            "hard_skill_q1": "Karyera maqsadlari va asosiy tajriba bo'yicha misol keltirishingiz mumkinmi?",
+            "hard_skill_q2": "Ushbu lavozimda qaysi texnik ko'nikmalar eng muhimligini aytasiz?",
+            "soft_skill_q1": "Mijozlar yoki jamoa bilan ishlashda ziddiyatlarni qanday hal qilgan bo'lar edingiz?",
+            "soft_skill_q2": "Bosim ostida ishlashdagi yondashuvingiz qanday?",
+        }
+        return {
+            "questions": fallback,
+            "tokens_input": 0,
+            "tokens_output": 0,
+            "cost_usd": 0.0,
+        }
 
-    return {
-        "questions": questions_dict,
-        "tokens_input": tokens_input,
-        "tokens_output": tokens_output,
-        "cost_usd": cost_usd,
-    }
 
-
-class EvaluationScoreSchema(BaseModel):
-    ai_score: int
-    feedback: str
-
-async def evaluate_candidate_answers(answers: Union[Dict[str, Any], str]) -> Dict[str, Any]:
-    """
-    Evaluates candidate answers (dict or string) and returns a score and feedback in Uzbek.
-    """
-    # Check if answers is already a string (from webapp.py) or a dictionary
+async def evaluate_candidate_answers(
+    answers: Union[Dict[str, Any], str],
+    background_tasks: Optional[BackgroundTasks] = None,
+) -> Dict[str, Any]:
+    """Evaluate candidate answers with a safe fallback response when the AI service is unavailable."""
     if isinstance(answers, str):
         formatted_answers = answers
     elif isinstance(answers, dict):
@@ -122,22 +141,17 @@ async def evaluate_candidate_answers(answers: Union[Dict[str, Any], str]) -> Dic
 
         parsed_eval = response.choices[0].message.parsed
         if parsed_eval is not None:
-            return {
-                "ai_score": parsed_eval.ai_score,
-                "feedback": parsed_eval.feedback
-            }
-        else:
-            # Fallback parsing if structured output partially fails
-            content = response.choices[0].message.content or "{}"
-            data = json.loads(content)
-            return {
-                "ai_score": int(data.get("ai_score", 0)),
-                "feedback": str(data.get("feedback", "Tahlil qilib bo'lmadi"))
-            }
+            return {"ai_score": parsed_eval.ai_score, "feedback": parsed_eval.feedback}
 
-    except Exception as e:
-        print(f"Error during AI evaluation: {e}")
+        content = response.choices[0].message.content or "{}"
+        data = json.loads(content)
+        return {
+            "ai_score": int(data.get("ai_score", 0)),
+            "feedback": str(data.get("feedback", "Tahlil qilib bo'lmadi")),
+        }
+    except Exception as exc:  # noqa: BLE001
+        logger.exception("AI evaluation failed: %s", exc)
         return {
             "ai_score": 0,
-            "feedback": f"Baholashda xatolik yuz berdi: {str(e)}"
+            "feedback": "Baholashda vaqtinchalik xatolik yuz berdi. Iltimos keyinroq qayta urinib ko'ring.",
         }
