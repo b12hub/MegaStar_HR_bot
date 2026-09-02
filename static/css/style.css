@@ -1,0 +1,257 @@
+/* ============================================================
+   Mega Star HR — Brand & Mini-App Stylesheet
+   Brand Crimson Red: #D90429 | Dark Text: #111827 | Light BG: #FFFFFF
+   ============================================================ */
+
+:root {
+    --ms-brand-red: #D90429 !important;
+    --ms-primary: #D90429 !important;
+    --ms-primary-hover: #B80322 !important;
+    --ms-primary-light: rgba(217, 4, 41, 0.08) !important;
+    --ms-dark-text: #111827 !important;
+    --ms-light-bg: #FFFFFF !important;
+    --ms-card-bg: #FAFAFB !important;
+    --ms-border: #E5E7EB !important;
+    --ms-radius: 1rem !important;
+
+    /* Override Telegram Mini-App injected theme variables */
+    --tg-theme-bg-color: #ffffff !important;
+    --tg-theme-text-color: #111827 !important;
+    --tg-theme-hint-color: #6B7280 !important;
+    --tg-theme-link-color: #D90429 !important;
+    --tg-theme-button-color: #D90429 !important;
+    --tg-theme-button-text-color: #ffffff !important;
+    --tg-theme-secondary-bg-color: #FAFAFB !important;
+}
+
+/* === Base Reset for Telegram WebApp Visual Lock === */
+html, body {
+    background-color: var(--ms-light-bg) !important;
+    color: var(--ms-dark-text) !important;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+}
+
+/* === Universal Adaptive Mobile Container === */
+.mini-app-container {
+    width: 100%;
+    max-width: 640px;
+    margin: 0 auto;
+    padding: 1rem;
+    box-sizing: border-box;
+}
+
+/* === Glass / Modern Card Containers === */
+.ms-card {
+    background: var(--ms-card-bg);
+    border: 1px solid var(--ms-border);
+    border-radius: 16px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04);
+    padding: 1.25rem;
+    transition: box-shadow 0.2s ease, border-color 0.2s ease;
+}
+
+/* === Interactive Pill Toggles (Micro-animated choices) === */
+.ms-toggle-group {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+.ms-toggle-group input[type="radio"],
+.ms-toggle-group input[type="checkbox"] {
+    position: absolute;
+    opacity: 0;
+    width: 0;
+    height: 0;
+    pointer-events: none;
+}
+
+.ms-toggle-group label {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    padding: 0.625rem 1.125rem;
+    font-size: 0.8125rem;
+    font-weight: 600;
+    color: #1E1E24;
+    background: #F4F4F6;
+    border: 1px solid #E5E7EB;
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+    user-select: none;
+    white-space: nowrap;
+}
+
+.ms-toggle-group label:hover {
+    border-color: var(--ms-brand-red);
+    background: var(--ms-primary-light);
+}
+
+.ms-toggle-group input[type="radio"]:checked + label,
+.ms-toggle-group input[type="checkbox"]:checked + label {
+    background: var(--ms-brand-red) !important;
+    color: #ffffff !important;
+    border-color: var(--ms-brand-red) !important;
+    transform: scale(1.02);
+    box-shadow: 0 4px 12px rgba(217, 4, 41, 0.28);
+    font-weight: 700;
+}
+
+/* === Brand Red Buttons ("Keyingi Qadam" & Actions) === */
+.btn-next, .btn-ms-red, .ms-btn-primary {
+    background-color: #D90429 !important;
+    color: #FFFFFF !important;
+    border: none !important;
+    font-weight: 600 !important;
+    box-shadow: 0 4px 12px rgba(217, 4, 41, 0.25) !important;
+    transition: all 0.2s ease-in-out !important;
+}
+
+.btn-next:active, .btn-next:hover,
+.btn-ms-red:active, .btn-ms-red:hover,
+.ms-btn-primary:active, .ms-btn-primary:hover {
+    background-color: #B80322 !important;
+    transform: translateY(-1px);
+}
+
+.btn-next:disabled, .btn-ms-red:disabled, .ms-btn-primary:disabled {
+    opacity: 0.6 !important;
+    cursor: not-allowed !important;
+    transform: none !important;
+    box-shadow: none !important;
+}
+
+/* === Section Typography & Labels === */
+.ms-section-title {
+    font-size: 1.125rem;
+    font-weight: 800;
+    color: var(--ms-dark-text);
+    margin-bottom: 0.5rem;
+    letter-spacing: -0.01em;
+}
+
+.ms-field-label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 800;
+    color: #374151;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    margin-bottom: 0.375rem;
+}
+
+/* === Custom Modern Inputs === */
+.ms-input {
+    width: 100%;
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    border: 1.5px solid var(--ms-border);
+    outline: none;
+    font-size: 0.875rem;
+    background: #FFFFFF;
+    color: var(--ms-dark-text);
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.ms-input:focus {
+    border-color: var(--ms-brand-red);
+    box-shadow: 0 0 0 3px var(--ms-primary-light);
+}
+
+.ms-input::placeholder {
+    color: #9CA3AF;
+}
+
+/* === Dynamic Blocks (Experience / Education) === */
+.ms-dynamic-block {
+    background: #FAFAFB;
+    border: 1px solid var(--ms-border);
+    border-radius: 16px;
+    padding: 1.25rem;
+    position: relative;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.02);
+}
+
+.ms-dynamic-block .ms-remove-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: #F3F4F6;
+    border: none;
+    color: #EF4444;
+    font-size: 1rem;
+    font-weight: bold;
+    cursor: pointer;
+    width: 28px;
+    height: 28px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: background 0.15s ease, color 0.15s ease;
+}
+
+.ms-dynamic-block .ms-remove-btn:hover {
+    background: #FEE2E2;
+    color: #DC2626;
+}
+
+/* === Add Block Button === */
+.ms-add-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.625rem 1.25rem;
+    font-size: 0.8125rem;
+    font-weight: 700;
+    color: var(--ms-brand-red);
+    background: var(--ms-primary-light);
+    border: 1.5px dashed var(--ms-brand-red);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    width: 100%;
+}
+
+.ms-add-btn:hover {
+    background: rgba(217, 4, 41, 0.14);
+    transform: translateY(-1px);
+}
+
+/* === Animated Step Progress Indicator === */
+.ms-progress-container {
+    background: #F3F4F6;
+    border-radius: 9999px;
+    height: 6px;
+    overflow: hidden;
+    width: 100%;
+}
+
+.ms-progress-fill {
+    height: 100%;
+    background: var(--ms-brand-red);
+    border-radius: 9999px;
+    transition: width 0.35s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* === Vacancy Card Styling (Portal) === */
+.vacancy-card {
+    transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.vacancy-card:hover {
+    border-color: var(--ms-brand-red) !important;
+    box-shadow: 0 8px 24px rgba(217, 4, 41, 0.1) !important;
+    transform: translateY(-2px);
+}
+
+/* === Header Brand Styling === */
+.brand-header {
+    background: #FFFFFF;
+    border-bottom: 1px solid #F3F4F6;
+    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.03);
+}

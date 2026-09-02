@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MegaStar★ HR Portal - HR Boshqaruv Paneli</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans antialiased">
+
+    <!-- Official Brand Header -->
+    <header class="brand-header flex items-center justify-between px-4 py-3.5 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
+        <a href="/dashboard/hr" class="flex items-center">
+            <img src="/static/images/logo.png" alt="Mega Star" class="h-28 sm:h-32 w-auto object-contain" onerror="this.onerror=null; this.src='/static/images/megastar.jpeg';">
+        </a>
+        <span class="badge bg-red-50 text-red-600 text-xs font-semibold px-2.5 py-1 rounded-full border border-red-100">Karierangizni Boshlang</span>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        
+        <!-- Page Title -->
+        <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-gray-200">
+            <div>
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-black tracking-tight">HR Boshqaruv Paneli</h1>
+                <p class="text-sm text-gray-500 mt-1">Vakansiyalarni boshqarish va AI xarajatlarini real vaqt rejimida monitoring qilish.</p>
+            </div>
+            <div class="mt-4 sm:mt-0">
+                <a href="/dashboard/vacancies/new" class="px-4 py-2 bg-red-600 hover:bg-red-700 text-white font-medium rounded-lg text-sm transition flex items-center gap-2"><span>+</span> Yangi Vakansiya Yaratish</a>
+            </div>
+        </div>
+
+        <!-- Top Panel: AI Cost Analytics & Key Metrics -->
+        <section aria-labelledby="analytics-heading">
+            <h2 id="analytics-heading" class="sr-only">AI Xarajatlar Tahlili</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+                
+                <!-- Card 1: Total AI Cost (USD) -->
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition-shadow relative overflow-hidden">
+                    <div class="absolute top-0 left-0 right-0 h-1 bg-red-600"></div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-gray-500">JAMI AI XARAJATI (USD)</p>
+                            <h3 class="text-3xl font-black text-black mt-2">
+                                $ {{ "%.7f"|format(total_ai_cost or 0.0) }}
+                            </h3>
+                            <p class="text-xs text-gray-400 mt-1">Generatsiyalar uchun sarflangan mablag'</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-xl bg-red-50 text-red-600 flex items-center justify-center font-bold text-xl border border-red-100">
+                            $
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 2: Active Vacancies Count -->
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition-shadow relative overflow-hidden">
+                    <div class="absolute top-0 left-0 right-0 h-1 bg-black"></div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-gray-500">FAOL VAKANSIYALAR</p>
+                            <h3 class="text-3xl font-black text-black mt-2">
+                                {% if active_vacancies_count is defined %}
+                                    {{ active_vacancies_count }}
+                                {% else %}
+                                    {{ vacancies | selectattr('is_active') | list | length }}
+                                {% endif %}
+                            </h3>
+                            <p class="text-xs text-gray-400 mt-1">Nomzodlar uchun ochiq</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-xl bg-gray-100 text-black flex items-center justify-center font-bold text-xl border border-gray-200">
+                            ★
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Card 3: Total Vacancies -->
+                <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition-shadow relative overflow-hidden sm:col-span-2 lg:col-span-1">
+                    <div class="absolute top-0 left-0 right-0 h-1 bg-gray-400"></div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-gray-500">JAMI VAKANSIYALAR</p>
+                            <h3 class="text-3xl font-black text-black mt-2">{{ vacancies|length }}</h3>
+                            <p class="text-xs text-gray-400 mt-1">Barcha filiallar bo'yicha</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-xl bg-gray-100 text-gray-700 flex items-center justify-center font-bold text-lg border border-gray-200">
+                            #
+                        </div>
+                    </div>
+                </div>
+
+            </div>
+        </section>
+
+        <!-- Main Table: Excel-style View for Vacancies -->
+        <section class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden" aria-labelledby="vacancies-table-heading">
+            <div class="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                    <h2 id="vacancies-table-heading" class="text-lg font-bold text-black">Vakansiyalar Ro'yxati</h2>
+                    <p class="text-xs text-gray-500">Barcha ro'yxatdan o'tgan vakansiyalarning Excel-style jadvali</p>
+                </div>
+                <div>
+                    <span class="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
+                        Jami yozuvlar: <strong class="text-black">{{ vacancies|length }}</strong>
+                    </span>
+                </div>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-left text-sm">
+                    <thead>
+                        <tr class="bg-gray-100 text-xs font-bold text-gray-700 uppercase tracking-wider border-b border-gray-200">
+                            <th scope="col" class="px-6 py-3.5 w-16">ID</th>
+                            <th scope="col" class="px-6 py-3.5">VAKANSIYA NOMI</th>
+                            <th scope="col" class="px-6 py-3.5">BO'LIM</th>
+                            <th scope="col" class="px-6 py-3.5">FILIAL</th>
+                            <th scope="col" class="px-6 py-3.5">HOLATI</th>
+                            <th scope="col" class="px-6 py-3.5">AI XARAJATI</th>
+                            <th scope="col" class="px-6 py-3.5">YARATILGAN VAQTI</th>
+                            <th scope="col" class="px-6 py-3.5">AMALLAR</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 bg-white">
+                        {% if vacancies %}
+                            {% for vacancy in vacancies %}
+                            <tr class="hover:bg-red-50/40 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap font-mono text-xs text-gray-600 font-semibold">
+                                    #{{ vacancy.id }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap font-bold text-gray-900">
+                                    <a href="/dashboard/vacancies/{{ vacancy.id }}" class="text-black hover:text-red-600 hover:underline transition">
+                                        {{ vacancy.title }}
+                                    </a>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-gray-600">
+                                    <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium bg-gray-100 text-gray-800">
+                                        {{ vacancy.department }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap font-mono text-xs text-gray-600">
+                                    {{ vacancy.branch_id }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    {% if vacancy.is_active %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-green-100 text-green-800 border border-green-200">
+                                            <span class="w-1.5 h-1.5 mr-1.5 bg-green-600 rounded-full"></span>
+                                            Faol
+                                        </span>
+                                    {% else %}
+                                        <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold bg-gray-100 text-gray-700 border border-gray-300">
+                                            <span class="w-1.5 h-1.5 mr-1.5 bg-gray-400 rounded-full"></span>
+                                            Nofaol
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap font-mono text-xs font-semibold text-gray-800">
+                                    $ {{ "%.7f"|format(vacancy.llm_cost_usd or 0.0) }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-500 font-mono">
+                                    {% if vacancy.created_at and vacancy.created_at.strftime %}
+                                        {{ vacancy.created_at.strftime('%Y-%m-%d %H:%M') }}
+                                    {% else %}
+                                        {{ vacancy.created_at or '-' }}
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-xs">
+                                    <div class="flex items-center gap-2">
+                                        <a href="/dashboard/vacancies/{{ vacancy.id }}" class="text-gray-700 hover:text-black hover:underline font-medium text-xs">Ko'rish</a>
+                                        <a href="/dashboard/vacancies/{{ vacancy.id }}/candidates" class="text-gray-700 hover:text-black hover:underline font-medium text-xs">Nomzodlar ({{ vacancy.candidate_count }})</a>
+                                        <form action="/dashboard/vacancies/{{ vacancy.id }}/toggle" method="POST" class="inline">
+                                            <button type="submit" class="text-xs font-medium {{ 'text-amber-600 hover:text-amber-800' if vacancy.is_active else 'text-emerald-600 hover:text-emerald-800' }} hover:underline">
+                                                {{ 'Nofaol qilish' if vacancy.is_active else 'Faollashtirish' }}
+                                            </button>
+                                        </form>
+                                        <a href="/dashboard/vacancies/{{ vacancy.id }}/edit" class="text-blue-600 hover:text-blue-800 hover:underline font-medium text-xs ml-2">Tahrirlash</a>
+                                        <form action="/dashboard/vacancies/{{ vacancy.id }}/delete" method="POST" class="inline ml-2" onsubmit="return confirm('Ushbu vakansiyani o\'chirishga ishonchingiz komilmi?');">
+                                            <button type="submit" class="text-red-600 hover:text-red-800 hover:underline font-medium text-xs">O'chirish</button>
+                                        </form>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="8" class="px-6 py-12 text-center text-gray-500 bg-white">
+                                    <div class="flex flex-col items-center justify-center space-y-2">
+                                        <span class="text-3xl text-gray-300">★</span>
+                                        <p class="font-medium text-gray-600">Vakansiyalar topilmadi</p>
+                                        <p class="text-xs text-gray-400">Yaratilgan vakansiyalar ushbu jadvalda aks etadi.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-auto py-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-400">
+            &copy; 2026 Mega Star. Barcha huquqlar himoyalangan.
+        </div>
+    </footer>
+
+</body>
+</html>

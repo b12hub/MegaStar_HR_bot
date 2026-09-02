@@ -1,0 +1,576 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<!--    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.tailwindcss.com; object-src 'none';">-->
+    <title>Nomzod Ma'lumotlari - {{ user.full_name if user else 'Nomzod' }}</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans antialiased">
+
+    <!-- Header Navigation -->
+    <header class="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+            <div class="flex justify-between items-center h-16">
+                <div class="flex items-center gap-3">
+                    <img src="/static/images/logo.png" alt="Mega Star" class="h-28 sm:h-32 w-auto object-contain hidden sm:block" onerror="this.onerror=null; this.src='/static/images/megastar.jpeg';">
+                    <div>
+                        <h1 class="text-lg font-extrabold text-gray-900">{{ user.full_name if user else 'Noma\'lum Nomzod' }}</h1>
+                        <p class="text-xs text-gray-500">Arizalar holati: <span class="font-bold text-red-600">{{ candidate.status.value if candidate.status and candidate.status.value else candidate.status }}</span></p>
+                    </div>
+                </div>
+                <div>
+                    <a href="/dashboard/vacancies/{{ vacancy.id }}/candidates" class="inline-flex items-center text-xs font-bold text-gray-600 hover:text-red-600 bg-gray-100 hover:bg-red-50 px-3 py-1.5 rounded-lg border border-gray-200 transition">
+                        ← Nomzodlar ro'yxatiga qaytish
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+
+        <!-- Header Info Card -->
+        <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
+            <div class="flex items-center gap-4">
+                {% if candidate.photo_file_path %}
+                <img src="/{{ candidate.photo_file_path.lstrip('/') }}" alt="Nomzod rasmi" class="w-20 h-20 object-cover rounded-2xl border-2 border-red-100 shadow-sm" />
+                {% else %}
+                <div class="w-20 h-20 rounded-2xl bg-red-50 border border-red-100 flex items-center justify-center text-3xl font-extrabold text-red-600">
+                    👤
+                </div>
+                {% endif %}
+                <div>
+                    <h2 class="text-xl font-extrabold text-gray-900">{{ user.full_name if user and user.full_name else 'Noma\'lum Nomzod' }}</h2>
+                    <p class="text-xs text-gray-500 mt-0.5">Vakansiya: <strong class="text-gray-800">{{ vacancy.title if vacancy else 'Vakansiya ko\'rsatilmagan' }}</strong></p>
+                    <p class="text-xs text-gray-400 mt-1">Arizaga kelgan vaqti: {% if candidate.created_at and candidate.created_at.strftime %}{{ candidate.created_at.strftime('%Y-%m-%d %H:%M:%S') }}{% else %}{{ candidate.created_at or '-' }}{% endif %}</p>
+                </div>
+            </div>
+            <div class="flex items-center gap-3 w-full md:w-auto">
+                {% set resume_path = candidate.resume_url or candidate.cv_file or candidate.resume_file_path %}
+                {% if resume_path %}
+                    <a href="/{{ resume_path.lstrip('/') }}" target="_blank" class="w-full md:w-auto inline-flex items-center justify-center px-4 py-2 bg-red-600 text-white text-xs font-bold rounded-xl hover:bg-red-700 transition shadow-sm">
+                        📄 Rezyumeni (CV) ko'rish
+                    </a>
+                {% else %}
+                    <span class="text-xs text-gray-400 italic bg-gray-100 px-3 py-2 rounded-xl">Rezyume fayli yuklanmagan</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- 1. Shaxsiy Ma'lumotlar Grid Card -->
+        <section class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <h3 class="text-base font-extrabold text-gray-900 mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
+                👤 Shaxsiy Ma'lumotlar
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">👤 Toʻliq ismi</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ user.full_name if user and user.full_name else 'Mavjud emas' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">📅 Tug'ilgan sanasi</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.birth_date or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">✉️ Elektron pochta (Email)</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.email or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">🏠 Hozirgi yashash manzili</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.address or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">📱 Telefon raqami</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ user.phone_number if user and user.phone_number else '-' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">📱 Qoʻshimcha telefon raqam</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.extra_phone or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">✈️ Telegram Foydalanuvchisi</div>
+                    <div class="font-semibold text-gray-800 mt-1">
+                        {% if user and user.telegram_username %}
+                            @{{ user.telegram_username }}
+                        {% elif user and user.telegram_id %}
+                            ID: {{ user.telegram_id }}
+                        {% else %}
+                            Ko'rsatilmagan
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">📜 Ommaviy oferta shartlariga rozilik</div>
+                    <div class="font-semibold text-gray-800 mt-1">
+                        {% if candidate.accept_offer %}
+                            <span class="text-green-600">✅ Rozilik berilgan</span>
+                        {% else %}
+                            <span class="text-gray-400">Ko'rsatilmagan</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 2. Kasbiy va Ko'nikmalar Ma'lumotlari Card -->
+        <section class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <h3 class="text-base font-extrabold text-gray-900 mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
+                💼 Kasbiy va Qo'shimcha Ma'lumotlar
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">💍 Oilaviy ahvoli</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.marital_status or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">🎓 Talabamisiz?</div>
+                    <div class="font-semibold text-gray-800 mt-1">
+                        {% if candidate.is_student is sameas true or candidate.is_student == 'Ha' %}
+                            ✅ Ha
+                        {% elif candidate.is_student is sameas false or candidate.is_student == 'Yo\'q' %}
+                            ❌ Yo'q
+                        {% else %}
+                            {{ candidate.is_student or 'Ko\'rsatilmagan' }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">📚 Ta'lim sohangiz / Mutaxassisligingiz</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.education_field or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">🇺🇿 O'zbek tilini bilish darajangiz</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.uz_lang_level or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">🇷🇺 Rus tilini bilish darajangiz</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.rus_lang_level or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">🇬🇧 Ingliz tilini bilish darajangiz</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.eng_lang_level or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">💻 Kompyuter savodxonligi darajangiz</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.computer_level or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">💼 Umumiy ish tajribasi (yillarda)</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.work_experience_years or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">🖥️ CRM dasturlarida ishlash ko'nikmasi</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.crm_tools or 'Ko\'rsatilmagan' }}</div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">💵 Kutilayotgan ish haqi (maosh)</div>
+                    <div class="font-semibold text-gray-800 mt-1">
+                        {% if candidate.expected_salary %}
+                            {{ candidate.expected_salary }} so'm
+                        {% else %}
+                            Ko'rsatilmagan
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">🚗 Shaxsiy avtomobilingiz bormi?</div>
+                    <div class="font-semibold text-gray-800 mt-1">
+                        {% if candidate.has_car is sameas true or candidate.has_car == 'Ha' %}
+                            ✅ Ha
+                        {% elif candidate.has_car is sameas false or candidate.has_car == 'Yo\'q' %}
+                            ❌ Yo'q
+                        {% else %}
+                            {{ candidate.has_car or 'Ko\'rsatilmagan' }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">⚖️ Ilgari sudlanganmisiz?</div>
+                    <div class="font-semibold text-gray-800 mt-1">
+                        {% if candidate.is_convicted is sameas true or candidate.is_convicted == 'Ha' %}
+                            ⚠️ Ha
+                        {% elif candidate.is_convicted is sameas false or candidate.is_convicted == 'Yo\'q' %}
+                            ✅ Yo'q
+                        {% else %}
+                            {{ candidate.is_convicted or 'Ko\'rsatilmagan' }}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="p-3 bg-gray-50 rounded-xl border border-gray-100 md:col-span-2">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">❓ Vakansiya haqida qayerdan bildingiz?</div>
+                    <div class="font-semibold text-gray-800 mt-1">{{ candidate.where_heard or 'Ko\'rsatilmagan' }}</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 3. Motivation / Why You Section -->
+        {% if candidate.why_you %}
+        <section class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <h3 class="text-base font-extrabold text-gray-900 mb-3 flex items-center gap-2">
+                🎯 Nima uchun aynan ushbu nomzodni tanlash kerak?
+            </h3>
+            <div class="p-4 bg-red-50/50 rounded-xl border border-red-100 text-sm text-gray-800 leading-relaxed font-medium">
+                {{ candidate.why_you }}
+            </div>
+        </section>
+        {% endif %}
+
+        <!-- 4. Ish Tajribalari (Dynamic List) -->
+        <section class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <h3 class="text-base font-extrabold text-gray-900 mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
+                💼 Ish Tajribasi
+            </h3>
+            {% set exp_list = extended_data.get('experience') if extended_data and extended_data.get('experience') else (extended_data if extended_data is iterable and not extended_data is mapping else []) %}
+            {% if exp_list %}
+                <div class="space-y-4">
+                    {% for exp in exp_list %}
+                    <div class="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-2">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h4 class="font-bold text-gray-900 text-sm">{{ exp.company_name or exp.experience_title or 'Kompaniya' }}</h4>
+                                <p class="text-xs text-red-600 font-semibold">{{ exp.position or 'Lavozim ko\'rsatilmagan' }}</p>
+                            </div>
+                            <span class="text-xs font-mono bg-white px-2.5 py-1 rounded-full border border-gray-200 text-gray-600">
+                                {{ exp.start_date or 'Sana yo\'q' }} — {{ exp.end_date or 'Hozirda' }}
+                            </span>
+                        </div>
+                        {% if exp.manager_name or exp.manager_phone %}
+                        <div class="text-xs text-gray-600 pt-2 border-t border-gray-200 flex flex-wrap gap-4">
+                            {% if exp.manager_name %}<div><strong>Rahbar:</strong> {{ exp.manager_name }}</div>{% endif %}
+                            {% if exp.manager_phone %}<div><strong>Tel:</strong> {{ exp.manager_phone }}</div>{% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-xs text-gray-500 italic">Ish tajribasi ma'lumotlari kiritilmagan.</p>
+            {% endif %}
+        </section>
+
+        <!-- 5. Ta'lim Tarixi (Dynamic List) -->
+        <section class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <h3 class="text-base font-extrabold text-gray-900 mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
+                🎓 Ta'lim Darajasi va O'quv Yurtlari
+            </h3>
+            {% set edu_list = extended_data.get('education') if extended_data and extended_data.get('education') else [] %}
+            {% if edu_list %}
+                <div class="space-y-4">
+                    {% for edu in edu_list %}
+                    <div class="p-4 bg-gray-50 rounded-xl border border-gray-200 space-y-1">
+                        <div class="flex items-start justify-between">
+                            <div>
+                                <h4 class="font-bold text-gray-900 text-sm">{{ edu.institution or 'Oliygo\'h / Muassasa' }}</h4>
+                                <p class="text-xs text-gray-600">{{ edu.degree or 'Daraja' }} {% if edu.field_of_study %}— {{ edu.field_of_study }}{% endif %}</p>
+                            </div>
+                            <span class="text-xs font-mono bg-white px-2.5 py-1 rounded-full border border-gray-200 text-gray-600">
+                                Bitirgan yili: {{ edu.graduation_year or 'Hozirda o\'qiydi' }}
+                            </span>
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            {% else %}
+                <p class="text-xs text-gray-500 italic">Ta'lim ma'lumotlari kiritilmagan.</p>
+            {% endif %}
+        </section>
+
+        <!-- 6. AI Savollari va Nomzod Javoblari -->
+        <section class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <h3 class="text-base font-extrabold text-gray-900 mb-4 pb-2 border-b border-gray-100 flex items-center gap-2">
+                🤖 AI Savollari va Nomzod Javoblari
+            </h3>
+            <div class="space-y-4">
+                <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">1-Savol (Hard Skill)</div>
+                    <div class="text-xs font-semibold text-red-600 mb-2">{{ vacancy.generated_hard_skill_q1 or 'Savol berilmagan' }}</div>
+                    <div class="text-sm text-gray-800 bg-white p-3 rounded-lg border border-gray-200">{{ candidate.hard_skill_a1 or '-' }}</div>
+                </div>
+
+                <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">2-Savol (Hard Skill)</div>
+                    <div class="text-xs font-semibold text-red-600 mb-2">{{ vacancy.generated_hard_skill_q2 or 'Savol berilmagan' }}</div>
+                    <div class="text-sm text-gray-800 bg-white p-3 rounded-lg border border-gray-200">{{ candidate.hard_skill_a2 or '-' }}</div>
+                </div>
+
+                <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">3-Savol (Soft Skill)</div>
+                    <div class="text-xs font-semibold text-red-600 mb-2">{{ vacancy.generated_soft_skill_q1 or 'Savol berilmagan' }}</div>
+                    <div class="text-sm text-gray-800 bg-white p-3 rounded-lg border border-gray-200">{{ candidate.soft_skill_a1 or '-' }}</div>
+                </div>
+
+                <div class="p-4 bg-gray-50 rounded-xl border border-gray-100">
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider mb-1">4-Savol (Soft Skill)</div>
+                    <div class="text-xs font-semibold text-red-600 mb-2">{{ vacancy.generated_soft_skill_q2 or 'Savol berilmagan' }}</div>
+                    <div class="text-sm text-gray-800 bg-white p-3 rounded-lg border border-gray-200">{{ candidate.soft_skill_a2 or '-' }}</div>
+                </div>
+            </div>
+        </section>
+
+        <!-- 7. AI Baholash & HR Harakatlari -->
+        <section class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm">
+            <h3 class="text-base font-extrabold text-gray-900 mb-3 flex items-center gap-2">
+                ⚡ AI Baholash va HR Qarori
+            </h3>
+            <div class="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <div>
+                    <div class="text-xs font-bold text-gray-900 uppercase tracking-wider">AI Ball holati</div>
+                    <div class="text-sm font-semibold text-gray-800 mt-1">
+                        Holat: <strong class="text-red-600">{{ 'Baholangan' if candidate.ai_score is not none else 'Baholanmagan' }}</strong>
+                        {% if candidate.ai_score is not none %}
+                            <span class="ml-2 bg-red-100 text-red-700 text-xs font-mono font-bold px-2.5 py-0.5 rounded-full">{{ candidate.ai_score }} / 100</span>
+                        {% endif %}
+                    </div>
+                </div>
+                <button id="aiEvaluateBtn" data-candidate-id="{{ candidate.id }}" class="w-full sm:w-auto px-5 py-2.5 bg-red-600 hover:bg-red-700 text-white text-xs font-bold rounded-xl transition shadow-sm disabled:opacity-60">
+                    AI orqali baholash
+                </button>
+            </div>
+        </section>
+
+        <!-- Sticky HR Action Bar -->
+        <div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.1)] z-40">
+            <div class="max-w-5xl mx-auto flex justify-end gap-4">
+                <button id="rejectBtn" class="px-6 py-2.5 bg-white border border-red-200 text-red-600 hover:bg-red-50 text-sm font-bold rounded-xl transition shadow-sm">
+                    ❌ Rad Etish
+                </button>
+                <button id="openScheduleBtn" class="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl transition shadow-sm">
+                    ✅ Qabul Qilish (Uchrashuv)
+                </button>
+            </div>
+        </div>
+
+    </main>
+
+    <!-- Scheduling Modal -->
+    <div id="scheduleModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Background overlay -->
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" id="modalOverlay"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Modal Panel -->
+            <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+                <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                    <h3 class="text-lg leading-6 font-extrabold text-gray-900 mb-4" id="modal-title">Uchrashuv belgilash</h3>
+                    <!-- Halt default HTML submission directly at the DOM level -->
+                    <form id="scheduleForm" class="space-y-4" onsubmit="event.preventDefault();">
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Keyingi Bosqich</label>
+                            <!-- Updated Dropdown Options -->
+                            <select id="stageSelect" required class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                                <option value="" disabled selected>Tanlang...</option>
+                                <option value="hr_online">1-bosqich Online-Suhbat (HR)</option>
+                                <option value="hr_offline">2-bosqich Ofisda (HR)</option>
+                                <option value="director_offline">3-bosqich Rahbar bilan (Ofisda)</option>
+                            </select>
+                        </div>
+                        <div>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Vaqti va Sanasi</label>
+                            <input type="datetime-local" id="meetingTime" required class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                        </div>
+                        <!-- Branch Dropdown for offline stages -->
+                        <div id="branchContainer" class="hidden" style="display: none;">
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Filialni tanlang</label>
+                            <select id="branch_name" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
+                                <option value="" disabled selected>Tanlang...</option>
+                                <option value="Izza - Showroom">Izza - Showroom</option>
+                                <option value="Malika bozori, A3-do'kon">Malika bozori, A3-do'kon</option>
+                                <option value="O'rikzor bozori, 5-blok C15-do'kon">O'rikzor bozori, 5-blok C15-do'kon</option>
+                                <option value="O'rikzor bozori, 5-blok 60-do'kon">O'rikzor bozori, 5-blok 60-do'kon</option>
+                                <option value="Abusaxiy bozori, E111-do'kon">Abusaxiy bozori, E111-do'kon</option>
+                                <option value="Shaxrisabz filiali">Shaxrisabz filiali</option>
+                                <option value="Namangan filiali">Namangan filiali</option>
+                                <option value="Buxoro filiali">Buxoro filiali</option>
+                                <option value="Qarshi filiali">Qarshi filiali</option>
+                                <option value="Outlet">Outlet</option>
+                            </select>
+                        </div>
+                    </form>
+                </div>
+                <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-100">
+                    <button type="button" id="submitScheduleBtn" class="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-4 py-2 bg-green-600 text-base font-medium text-white hover:bg-green-700 sm:ml-3 sm:w-auto sm:text-sm transition">
+                        Belgilash
+                    </button>
+                    <button type="button" id="closeModalBtn" class="mt-3 w-full inline-flex justify-center rounded-xl border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition">
+                        Bekor qilish
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="bg-white border-t border-gray-200 mt-auto py-4">
+        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-400">
+            &copy; 2026 Mega Star. Barcha huquqlar himoyalangan.
+        </div>
+    </footer>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // ==========================================
+            // 1. AI Evaluation Logic
+            // ==========================================
+            const button = document.getElementById('aiEvaluateBtn');
+            if (button) {
+                button.addEventListener('click', async () => {
+                    const candidateId = button.dataset.candidateId;
+                    button.disabled = true;
+                    button.textContent = 'Baholanyapti...';
+
+                    try {
+                        const response = await fetch(`/dashboard/candidates/${candidateId}/evaluate`, {
+                            method: 'POST',
+                            headers: {'Accept': 'application/json'}
+                        });
+                        const data = await response.json().catch(() => ({}));
+                        if (!response.ok) {
+                            throw new Error(data.detail || 'AI baholashda xatolik yuz berdi');
+                        }
+                        alert(data.message || 'AI baholash yakunlandi.');
+                        window.location.reload();
+                    } catch (error) {
+                        console.error('AI evaluation error:', error);
+                        alert('AI baholashda xatolik yuz berdi. Iltimos qaytadan urinib ko\'ring.');
+                    } finally {
+                        button.disabled = false;
+                        button.textContent = 'AI orqali baholash';
+                    }
+                });
+            }
+
+            // ==========================================
+            // 2. Dashboard Stage Management & Modal Logic
+            // ==========================================
+            const candidateId = "{{ candidate.id }}";
+            const rejectBtn = document.getElementById('rejectBtn');
+
+            // Modal Elements
+            const modal = document.getElementById('scheduleModal');
+            const openModalBtn = document.getElementById('openScheduleBtn');
+            const closeModalBtn = document.getElementById('closeModalBtn');
+            const modalOverlay = document.getElementById('modalOverlay');
+            const stageSelect = document.getElementById('stageSelect');
+            const branchContainer = document.getElementById('branchContainer');
+            const branchSelect = document.getElementById('branch_name');
+            const submitScheduleBtn = document.getElementById('submitScheduleBtn');
+
+            // Toggle Branch Dropdown visibility based on stage
+            if(stageSelect) {
+                stageSelect.addEventListener('change', (e) => {
+                    if (e.target.value === 'hr_online') {
+                        // Zoom link is generated by FastAPI; hide branch selection
+                        branchContainer.style.display = "none";
+                        branchContainer.classList.add('hidden');
+                        branchSelect.required = false;
+                        branchSelect.value = ''; // Clear payload
+                    } else {
+                        // Offline stages: show branch dropdown
+                        branchContainer.style.display = "block";
+                        branchContainer.classList.remove('hidden');
+                        branchSelect.required = true;
+                    }
+                });
+            }
+
+            // Modal Toggles
+            const toggleModal = () => modal.classList.toggle('hidden');
+            if(openModalBtn) openModalBtn.addEventListener('click', toggleModal);
+            if(closeModalBtn) closeModalBtn.addEventListener('click', toggleModal);
+            if(modalOverlay) modalOverlay.addEventListener('click', toggleModal);
+
+            // Reject Logic
+            if(rejectBtn) {
+                rejectBtn.addEventListener('click', async () => {
+                    const currentStatus = "{{ candidate.pipeline_stage }}";
+                    const isInitial = (currentStatus === 'YANGI' || !currentStatus) ? 'initial' : 'after_meeting';
+
+                    if(confirm('Nomzodni haqiqatan ham rad etmoqchimisiz? Unga Telegram orqali xabar yuboriladi.')) {
+                        rejectBtn.disabled = true;
+                        rejectBtn.innerText = 'Rad etilmoqda...';
+
+                        try {
+                            const res = await fetch(`/dashboard/candidates/${candidateId}/reject?stage=${isInitial}`, {
+                                method: 'POST',
+                                headers: {'Accept': 'application/json'}
+                            });
+
+                            // FIXED: Added success feedback and page reload
+                            if(res.ok) {
+                                alert("Muvaffaqiyatli saqlandi!");
+                                window.location.reload();
+                            }
+                            else alert('Xatolik yuz berdi.');
+
+                        } catch(err) {
+                            console.error(err);
+                            alert('Tarmoq xatosi.');
+                            rejectBtn.disabled = false;
+                        }
+                    }
+                });
+            }
+
+            // Schedule Logic
+            if(submitScheduleBtn) {
+                submitScheduleBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+
+                    const form = document.getElementById('scheduleForm');
+                    if(!form.checkValidity()) {
+                        form.reportValidity();
+                        return;
+                    }
+
+                    // Capture the branch once to avoid redundant DOM lookups
+                    const selectedBranch = branchSelect.value || null;
+
+                    // Send multiple alias keys to ensure the FastAPI schema catches the value
+                    // whether it is expecting 'branch_name', 'location', or 'meeting_link_or_loc'
+                    const payload = {
+                        stage: stageSelect.value,
+                        meeting_time: document.getElementById('meetingTime').value,
+                        branch_name: selectedBranch,
+                        location: selectedBranch,
+                        meeting_link_or_loc: selectedBranch
+                    };
+
+                    submitScheduleBtn.disabled = true;
+                    submitScheduleBtn.innerText = 'Saqlanmoqda...';
+
+                    try {
+                        const res = await fetch(`/dashboard/candidates/${candidateId}/schedule`, {
+                            method: 'POST',
+                            headers: {
+                                'Content-Type': 'application/json',
+                                'Accept': 'application/json'
+                            },
+                            body: JSON.stringify(payload)
+                        });
+
+                        // FIXED: Hide modal, alert success, and reload page
+                        if(res.ok) {
+                            modal.classList.add('hidden'); // Hide the scheduling modal
+                            alert("Muvaffaqiyatli saqlandi!");
+                            window.location.reload();
+                        } else {
+                            const errorData = await res.json().catch(() => ({}));
+                            console.error("Server Error Payload:", errorData);
+                            alert(`Xatolik yuz berdi: ${errorData.detail || 'Noma\'lum xato'}`);
+                        }
+                    } catch(err) {
+                        console.error("Network Fetch Error:", err);
+                        alert('Tarmoq xatosi yoki server bilan aloqa uzildi.');
+                    } finally {
+                        submitScheduleBtn.disabled = false;
+                        submitScheduleBtn.innerText = 'Belgilash';
+                    }
+                });
+            }
+        });
+    </script>
+</body>
+</html>

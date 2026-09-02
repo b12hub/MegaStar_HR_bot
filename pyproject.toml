@@ -1,0 +1,23 @@
+[project]
+name = "mega-star-hr-website"
+version = "0.1.0"
+requires-python = ">=3.12"
+dependencies = [
+    "fastapi>=0.110.0",
+    "uvicorn[standard]>=0.28.0",
+    "jinja2==3.1.6",
+    "python-multipart==0.0.32",
+    "aiogram>=3.4.1",
+    "sqlmodel>=0.0.16",
+    "psycopg2-binary>=2.9.9",
+    "alembic>=1.13.1",
+    "openai>=1.14.1",
+    "anthropic>=0.19.1",
+    "gspread>=6.0.0",
+    "google-auth>=2.28.0",
+    "apscheduler>=3.10.4",
+    "pydantic-settings>=2.2.1",
+    "python-dotenv>=1.0.1",
+    "httpx>=0.28.1",
+]
+

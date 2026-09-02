@@ -1,0 +1,23 @@
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Google credentials
+credentials.json
+client_secret_*.json
+*.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+
+# Build
+
+uploads/
+alembic/
+.venv/
+.idea/

@@ -1,0 +1,102 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MegaStar★ HR Portal - {{ vacancy.title }} nomzodlari</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans antialiased">
+    <!-- Official Brand Header -->
+    <header class="brand-header flex items-center justify-between px-4 py-3.5 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
+        <a href="/dashboard/hr" class="flex items-center">
+            <img src="/static/images/logo.png" alt="Mega Star" class="h-28 sm:h-32 w-auto object-contain" onerror="this.onerror=null; this.src='/static/images/megastar.jpeg';">
+        </a>
+        <a href="/dashboard/hr" class="text-sm font-medium text-gray-600 hover:text-red-600 transition flex items-center">← Orqaga</a>
+    </header>
+
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8">
+        <div class="mb-6 flex flex-col sm:flex-row sm:items-end sm:justify-between gap-4">
+            <div>
+                <p class="text-xs font-bold uppercase tracking-wider text-red-600">Vakansiya</p>
+                <h1 class="text-2xl sm:text-3xl font-extrabold text-black mt-1">{{ vacancy.title }}</h1>
+            </div>
+            <a href="/dashboard/hr" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-black transition shadow-sm">
+                ← Orqaga
+            </a>
+        </div>
+
+        <section class="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
+            <div class="px-6 py-4 border-b border-gray-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <div>
+                    <h2 class="text-lg font-bold text-black">Nomzodlar ro'yxati</h2>
+                    <p class="text-xs text-gray-500">{{ vacancy.title }} vakansiyasiga topshirilgan arizalar</p>
+                </div>
+                <span class="text-xs font-medium text-gray-500 bg-gray-100 px-3 py-1.5 rounded-lg border border-gray-200">
+                    Jami: <strong class="text-black">{{ candidates|length }}</strong>
+                </span>
+            </div>
+
+            <div class="overflow-x-auto">
+                <table class="min-w-full divide-y divide-gray-200 text-left text-sm">
+                    <thead>
+                        <tr class="bg-gray-100 text-xs font-bold text-gray-700 uppercase tracking-wider border-b border-gray-200">
+                            <th scope="col" class="px-6 py-3.5">Nomzod</th>
+                            <th scope="col" class="px-6 py-3.5">Yaratilgan vaqti</th>
+                            <th scope="col" class="px-6 py-3.5">Status</th>
+                            <th scope="col" class="px-6 py-3.5">AI Bahosi</th>
+                            <th scope="col" class="px-6 py-3.5">Amallar</th>
+                        </tr>
+                    </thead>
+                    <tbody class="divide-y divide-gray-200 bg-white">
+                        {% if candidates %}
+                            {% for candidate in candidates %}
+                            <tr class="hover:bg-red-50/40 transition-colors">
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="font-semibold text-gray-900">{{ candidate.full_name }}</div>
+                                    <div class="text-xs text-gray-500 font-mono">{{ candidate.phone_number }}</div>
+                                    <div class="text-[11px] text-gray-400">Telegram: {{ candidate.user.telegram_username if candidate.user and candidate.user.telegram_username else 'Mavjud emas' }}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-xs text-gray-600 font-mono">
+                                    {% if candidate.created_at and candidate.created_at.strftime %}
+                                        {{ candidate.created_at.strftime('%Y-%m-%d %H:%M:%S') }}
+                                    {% else %}
+                                        {{ candidate.created_at or '-' }}
+                                    {% endif %}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border bg-gray-100 text-gray-800 border-gray-200">
+                                        {{ candidate.status }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap font-mono text-xs font-semibold text-gray-800">
+                                    {{ candidate.ai_score }}
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm">
+                                    <a href="/dashboard/candidates/{{ candidate.id }}" class="text-gray-700 hover:text-black hover:underline font-medium">Ko'rish</a>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="px-6 py-12 text-center text-gray-500 bg-white">
+                                    <div class="flex flex-col items-center justify-center space-y-2">
+                                        <p class="font-medium text-gray-600">Nomzodlar topilmadi</p>
+                                        <p class="text-xs text-gray-400">Ushbu vakansiyaga hali birorta ariza kiritilmagan.</p>
+                                    </div>
+                                </td>
+                            </tr>
+                        {% endif %}
+                    </tbody>
+                </table>
+            </div>
+        </section>
+    </main>
+
+    <footer class="bg-white border-t border-gray-200 mt-auto py-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-400">
+            &copy; 2026 Mega Star. Barcha huquqlar himoyalangan.
+        </div>
+    </footer>
+</body>
+</html>
