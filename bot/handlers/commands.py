@@ -1,3 +1,6 @@
+import logging
+from urllib.parse import urlparse
+
 from aiogram import Router
 from aiogram.filters import Command, CommandStart
 from aiogram.types import InlineKeyboardButton, InlineKeyboardMarkup, Message, WebAppInfo
@@ -8,6 +11,7 @@ from db.database import engine
 from db.models import ApplicationStatus, Branch, CandidateApplication, InterviewStage, User
 
 router = Router(name="commands")
+logger = logging.getLogger(__name__)
 
 
 @router.message(CommandStart())
@@ -24,6 +28,10 @@ async def command_start_handler(message: Message) -> None:
 
     # Point to the central portal page via Web App
     webapp_url = f"{settings.WEBAPP_URL.rstrip('/')}/apply/portal"
+    parsed = urlparse(webapp_url)
+    if parsed.scheme != "https":
+        logger.warning("Non-HTTPS WebApp URL detected, forcing HTTPS: %s", webapp_url)
+        webapp_url = webapp_url.replace("http://", "https://", 1)
 
     keyboard = InlineKeyboardMarkup(
         inline_keyboard=[

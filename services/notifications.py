@@ -57,6 +57,10 @@ async def send_tg_notification(
         logger.error("BOT_TOKEN is missing or invalid in environment variables.")
         return
 
+    if chat_id in (None, ""):
+        logger.warning("Skipping Telegram notification because chat_id is empty.")
+        return
+
     url = f"https://api.telegram.org/bot{settings.BOT_TOKEN}/sendMessage"
     async with httpx.AsyncClient(timeout=timeout) as client:
         try:
@@ -74,8 +78,8 @@ async def send_tg_notification(
                 chat_id,
                 exc.response.text,
             )
-        except Exception as exc:  # noqa: BLE001
-            logger.exception("Failed to send Telegram message to %s: %s", chat_id, exc)
+        except Exception:  # noqa: BLE001
+            logger.exception("Failed to send Telegram message to %s", chat_id)
 
 
 async def notify_candidate_status(

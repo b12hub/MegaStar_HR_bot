@@ -8,6 +8,7 @@
   <title>Mega Star — Bo'sh ish o'rinlarimiz</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/css/style.css">
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
   <style>
     /* Telegram Mini-App hard override */
     html, body {
@@ -132,6 +133,34 @@
 
     [filterRegion, filterBranch, filterDepartment, filterCategory].forEach((filter) => {
       filter.addEventListener('change', applyFilters);
+    });
+
+    document.addEventListener('DOMContentLoaded', function () {
+      const tg = window.Telegram?.WebApp;
+      if (tg) {
+        tg.ready();
+        const tgUser = tg.initDataUnsafe?.user;
+        const tgId = tgUser?.id || sessionStorage.getItem('tg_id');
+        const tgUsername = tgUser?.username || sessionStorage.getItem('tg_username');
+
+        if (tgId) {
+          sessionStorage.setItem('tg_id', String(tgId));
+        }
+        if (tgUsername) {
+          sessionStorage.setItem('tg_username', String(tgUsername));
+        }
+      }
+
+      const hash = window.location.hash || '';
+      document.querySelectorAll('a[href]').forEach((link) => {
+        const href = link.getAttribute('href');
+        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
+        const url = new URL(href, window.location.origin);
+        if (hash && !url.hash) {
+          url.hash = hash;
+          link.setAttribute('href', url.toString().replace(window.location.origin, ''));
+        }
+      });
     });
   </script>
 </body>

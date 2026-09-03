@@ -1,12 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="dataSourceStorageLocal" created-in="PY-262.9437.214">
-    <data-source name="PostgreSQL" uuid="c5b15228-ae78-474b-b51c-e06271609536">
-      <database-info product="" version="" jdbc-version="" driver-name="" driver-version="" dbms="POSTGRES" />
+    <data-source name="megastar_hr@localhost" uuid="8f76d233-e79a-4ab0-9352-e524f128c736">
+      <database-info product="PostgreSQL" version="18.6 (Ubuntu 18.6-1.pgdg24.04+2)" jdbc-version="4.2" driver-name="PostgreSQL JDBC Driver" driver-version="42.7.13" dbms="POSTGRES" exact-version="18.6" exact-driver-version="42.7">
+        <identifier-quote-string>&quot;</identifier-quote-string>
+      </database-info>
+      <case-sensitivity plain-identifiers="lower" quoted-identifiers="exact" />
       <secret-storage>master_key</secret-storage>
-      <auth-provider>pgpass</auth-provider>
-      <user-name>bobur</user-name>
-      <schema-mapping />
+      <user-name>postgres</user-name>
+      <schema-mapping>
+        <introspection-scope>
+          <node kind="database" qname="@">
+            <node kind="schema" qname="@" />
+          </node>
+        </introspection-scope>
+      </schema-mapping>
     </data-source>
   </component>
 </project>

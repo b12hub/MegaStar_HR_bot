@@ -40,6 +40,21 @@ import logging
 logger = logging.getLogger(__name__)
 
 
+def resolve_candidate_telegram_id(candidate: CandidateApplication, user: Optional[User] = None) -> Optional[int]:
+    """Resolve a candidate's Telegram ID from either the application or related user record."""
+    for candidate_value in (
+        getattr(candidate, "telegram_id", None),
+        getattr(user, "telegram_id", None) if user else None,
+    ):
+        if candidate_value in (None, ""):
+            continue
+        try:
+            return int(candidate_value)
+        except (TypeError, ValueError):
+            logger.warning("Ignoring invalid Telegram ID for candidate %s: %r", getattr(candidate, "id", None), candidate_value)
+            continue
+    return None
+
 
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
@@ -633,7 +648,7 @@ async def schedule_candidate(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nomzod topilmadi")
 
     user = db.get(User, candidate.user_id)
-    telegram_id = getattr(candidate, "telegram_id", None) or (user.telegram_id if user else None)
+    telegram_id = resolve_candidate_telegram_id(candidate, user)
 
     if not telegram_id:
         logger.error(f"Telegram ID is missing for Candidate ID {candidate_id}. Notification will not be sent.")
@@ -758,7 +773,7 @@ async def reject_candidate(
     db.commit()
 
     user = db.get(User, candidate.user_id)
-    telegram_id = getattr(candidate, "telegram_id", None) or (user.telegram_id if user else None)
+    telegram_id = resolve_candidate_telegram_id(candidate, user)
 
     if telegram_id:
         background_tasks.add_task(

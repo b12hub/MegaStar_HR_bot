@@ -1,4 +1,5 @@
 import json
+import logging
 import os
 import shutil
 from typing import Any, Dict, List, Optional, Union
@@ -34,9 +35,9 @@ from db.models import (
     Meeting,
 )
 
-
 router = APIRouter(tags=["Candidate Portal"])
 templates = Jinja2Templates(directory="templates")
+logger = logging.getLogger(__name__)
 
 # Make sure the uploads directory exists.
 os.makedirs("uploads", exist_ok=True)
@@ -167,9 +168,9 @@ def show_portal(request: Request, db: Session = Depends(get_session)):
 
 @router.get("/apply/{vacancy_id}", response_class=HTMLResponse)
 async def serve_intake_form(
-    vacancy_id: int,
-    request: Request,
-    db: Session = Depends(get_session),
+        vacancy_id: int,
+        request: Request,
+        db: Session = Depends(get_session),
 ):
     """Serves the HTML intake form for a specific vacancy."""
     vacancy = db.get(Vacancy, vacancy_id)
@@ -194,8 +195,8 @@ async def serve_intake_form(
 
 @router.post("/apply/submit", response_model=SubmitResponse, status_code=status.HTTP_201_CREATED)
 async def submit_candidate_application(
-    form_data: CandidateFormSubmit,
-    db: Session = Depends(get_session),
+        form_data: CandidateFormSubmit,
+        db: Session = Depends(get_session),
 ):
     """
     Accepts candidate application payload and saves it to PostgreSQL database:
@@ -280,13 +281,13 @@ async def submit_candidate_application(
         stage=InterviewStage.HR_VERIFICATION,
         pipeline_stage=PipelineStage.YANGI,
     )
-    
+
     from services.scoring import calculate_objective_score
     from services.llm_evaluator import evaluate_candidate_answers
-    
+
     objective_score = calculate_objective_score(application)
     application.objective_score = objective_score
-    
+
     answers_text = (
         f"Nima uchun aynan siz: {application.why_you or ''}\n"
         f"Hard skill A1: {application.hard_skill_a1 or ''}\n"
@@ -337,47 +338,47 @@ async def submit_candidate_application(
 
 @router.post("/apply/{vacancy_id}")
 async def submit_intake_form(
-    vacancy_id: int,
-    # Step 1: personal info
-    full_name: str = Form(...),
-    birth_date: Optional[str] = Form(None),
-    email: Optional[str] = Form(None),
-    address: Optional[str] = Form(None),
-    phone_number: str = Form(...),
-    telegram_id: Optional[int] = Form(None),
-    telegram_username: Optional[str] = Form(None),
-    extra_phone: Optional[str] = Form(None),
-    marital_status: Optional[str] = Form(None),
-    is_student: Optional[str] = Form(None),
-    education_field: Optional[str] = Form(None),
-    uz_lang_level: Optional[str] = Form(None),
-    rus_lang_level: Optional[str] = Form(None),
-    eng_lang_level: Optional[str] = Form(None),
-    computer_level: Optional[str] = Form(None),
-    work_experience_years: Optional[str] = Form(None),
-    crm_tools: Optional[str] = Form(None),
-    expected_salary: Optional[str] = Form(None),
-    has_car: Optional[str] = Form(None),
-    why_you: Optional[str] = Form(None),
-    is_convicted: Optional[str] = Form(None),
-    where_heard: Optional[str] = Form(None),
-    accept_offer: Optional[str] = Form(None),
+        vacancy_id: int,
+        # Step 1: personal info
+        full_name: str = Form(...),
+        birth_date: Optional[str] = Form(None),
+        email: Optional[str] = Form(None),
+        address: Optional[str] = Form(None),
+        phone_number: str = Form(...),
+        telegram_id: Optional[str] = Form(None),
+        telegram_username: Optional[str] = Form(None),
+        extra_phone: Optional[str] = Form(None),
+        marital_status: Optional[str] = Form(None),
+        is_student: Optional[str] = Form(None),
+        education_field: Optional[str] = Form(None),
+        uz_lang_level: Optional[str] = Form(None),
+        rus_lang_level: Optional[str] = Form(None),
+        eng_lang_level: Optional[str] = Form(None),
+        computer_level: Optional[str] = Form(None),
+        work_experience_years: Optional[str] = Form(None),
+        crm_tools: Optional[str] = Form(None),
+        expected_salary: Optional[str] = Form(None),
+        has_car: Optional[str] = Form(None),
+        why_you: Optional[str] = Form(None),
+        is_convicted: Optional[str] = Form(None),
+        where_heard: Optional[str] = Form(None),
+        accept_offer: Optional[str] = Form(None),
 
-    # Step 2 & 3: dynamic experience & education (JSON strings from frontend)
-    experience_json: Optional[str] = Form(None),
-    education_json: Optional[str] = Form(None),
+        # Step 2 & 3: dynamic experience & education (JSON strings from frontend)
+        experience_json: Optional[str] = Form(None),
+        education_json: Optional[str] = Form(None),
 
-    # Step 4: AI questions (may be empty)
-    hard_skill_a1: Optional[str] = Form(None),
-    hard_skill_a2: Optional[str] = Form(None),
-    soft_skill_a1: Optional[str] = Form(None),
-    soft_skill_a2: Optional[str] = Form(None),
+        # Step 4: AI questions (may be empty)
+        hard_skill_a1: Optional[str] = Form(None),
+        hard_skill_a2: Optional[str] = Form(None),
+        soft_skill_a1: Optional[str] = Form(None),
+        soft_skill_a2: Optional[str] = Form(None),
 
-    # Step 5: files
-    photo_file: Optional[UploadFile] = File(None),
-    resume_file: Optional[UploadFile] = File(None),
+        # Step 5: files
+        photo_file: Optional[UploadFile] = File(None),
+        resume_file: Optional[UploadFile] = File(None),
 
-    db: Session = Depends(get_session),
+        db: Session = Depends(get_session),
 ):
     """
     Handles a large multipart application submission; stores files and extended_data JSON.
@@ -401,10 +402,24 @@ async def submit_intake_form(
         with open(photo_path, "wb") as buffer:
             shutil.copyfileobj(photo_file.file, buffer)
 
+    logger.info(f"Received telegram_id from form: {telegram_id}")
+    print(f"\n{'=' * 50}\n🚀 DEBUG - RECEIVED TELEGRAM ID: {telegram_id}\n{'=' * 50}\n")
+
     # 2) Find or create user (lookup by phone / telegram id)
     user = None
-    if telegram_id:
-        user = db.exec(select(User).where(User.telegram_id == telegram_id)).first()
+    try:
+        normalized_telegram_id = (
+            int(telegram_id)
+            if telegram_id not in (None, "", "null", "undefined")
+            else None
+        )
+    except ValueError:
+        logger.warning(
+            f"Could not parse telegram_id={telegram_id!r} as int; storing as None"
+        )
+        normalized_telegram_id = None
+    if normalized_telegram_id is not None:
+        user = db.exec(select(User).where(User.telegram_id == normalized_telegram_id)).first()
 
     if not user:
         user = db.exec(select(User).where(User.phone_number == phone_number)).first()
@@ -413,7 +428,7 @@ async def submit_intake_form(
         user = User(
             full_name=full_name,
             phone_number=phone_number,
-            telegram_id=telegram_id,
+            telegram_id=normalized_telegram_id,
             telegram_username=telegram_username,
             role=UserRole.CANDIDATE,
         )
@@ -425,8 +440,8 @@ async def submit_intake_form(
         if full_name and user.full_name != full_name:
             user.full_name = full_name
             updated = True
-        if telegram_id and user.telegram_id != telegram_id:
-            user.telegram_id = telegram_id
+        if normalized_telegram_id is not None and user.telegram_id != normalized_telegram_id:
+            user.telegram_id = normalized_telegram_id
             updated = True
         if telegram_username and user.telegram_username != telegram_username:
             user.telegram_username = telegram_username
@@ -497,13 +512,13 @@ async def submit_intake_form(
         stage=InterviewStage.HR_VERIFICATION,
         pipeline_stage=PipelineStage.YANGI,
     )
-    
+
     from services.scoring import calculate_objective_score
     from services.llm_evaluator import evaluate_candidate_answers
-    
+
     objective_score = calculate_objective_score(application)
     application.objective_score = objective_score
-    
+
     answers_text = (
         f"Nima uchun aynan siz: {why_you or ''}\n"
         f"Hard skill A1: {hard_skill_a1 or ''}\n"
@@ -550,14 +565,15 @@ async def submit_intake_form(
     db.commit()
 
     # Return success: Frontend should close WebApp
-    return JSONResponse(content={"success": True, "message": "Arizangiz muvaffaqiyatli yuborildi!", "application_id": application.id})
+    return JSONResponse(
+        content={"success": True, "message": "Arizangiz muvaffaqiyatli yuborildi!", "application_id": application.id})
 
 
 @router.get("/apply/status")
 def check_application_status(
-    telegram_id: int,
-    vacancy_id: int,
-    db: Session = Depends(get_session),
+        telegram_id: int,
+        vacancy_id: int,
+        db: Session = Depends(get_session),
 ):
     """
     Checks if a candidate has already applied for this vacancy.
@@ -594,8 +610,7 @@ def check_application_status(
 
     return {
         "applied": True,
-        "stage": application.pipeline_stage.value if hasattr(application.pipeline_stage, "value") else str(application.pipeline_stage),
+        "stage": application.pipeline_stage.value if hasattr(application.pipeline_stage, "value") else str(
+            application.pipeline_stage),
         "meeting": meeting_data,
     }
-
-

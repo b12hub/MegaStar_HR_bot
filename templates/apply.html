@@ -60,6 +60,8 @@
                 </div>
 
                 <form id="applyForm" class="space-y-4" enctype="multipart/form-data">
+                    <input type="hidden" name="telegram_id" id="telegram_id_input" value="">
+                    <input type="hidden" name="telegram_username" value="">
 
                     <!-- ═══════════════════════════════════════════════════════ -->
                     <!-- STEP 1: Shaxsiy ma'lumotlar                             -->
@@ -271,10 +273,6 @@
                                     <label for="wh_boshqa">Boshqalar</label>
                                 </div>
                             </div>
-
-                            <!-- Telegram Username & ID (hidden) -->
-                            <input type="hidden" name="telegram_username" value="">
-                            <input type="hidden" name="telegram_id" value="">
 
                             <!-- 📜 Accept Offer (Modal Trigger) -->
                             <div class="border border-gray-200 rounded-xl p-4 bg-gray-50 flex items-center justify-between cursor-pointer hover:bg-gray-100 transition" onclick="openOfertaModal()">
@@ -553,6 +551,8 @@
     <!-- JavaScript: Multi-step, Dynamic Blocks, Submit Logic   -->
     <!-- ═══════════════════════════════════════════════════════ -->
     <script>
+        let tg = null;
+
         // Step titles mapping
         const STEP_TITLES = {
             1: "Shaxsiy ma'lumotlar",
@@ -562,22 +562,37 @@
             5: "Rezyume Yuklash"
         };
 
-        // Initialize Telegram WebApp API
-        const tg = window.Telegram && window.Telegram.WebApp ? window.Telegram.WebApp : null;
-        if (tg) {
-            tg.expand();
-            // Auto-fill Telegram data
-            const tgUser = tg.initDataUnsafe?.user;
-            if (tgUser) {
-                if (tgUser.id) document.querySelector('input[name="telegram_id"]').value = tgUser.id;
-                if (tgUser.username) document.querySelector('input[name="telegram_username"]').value = tgUser.username;
-                // Pre-fill name if available
-                const nameField = document.querySelector('input[name="full_name"]');
-                if (nameField && !nameField.value && (tgUser.first_name || tgUser.last_name)) {
-                    nameField.value = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ');
-                }
+        document.addEventListener('DOMContentLoaded', function () {
+            const telegramInput = document.getElementById('telegram_id_input');
+            const telegramUsernameInput = document.querySelector('input[name="telegram_username"]');
+            const nameField = document.querySelector('input[name="full_name"]');
+
+            tg = window.Telegram?.WebApp;
+            if (tg) {
+                tg.ready();
+                tg.expand();
+            } else {
+                console.error('Telegram WebApp SDK failed to load:', JSON.stringify({
+                    reason: 'window.Telegram.WebApp is unavailable'
+                }));
             }
-        }
+
+            const tgUser = tg?.initDataUnsafe?.user;
+            const tgId = tgUser?.id || sessionStorage.getItem('tg_id');
+            const tgUsername = tgUser?.username || sessionStorage.getItem('tg_username');
+
+            if (tgId && telegramInput) {
+                sessionStorage.setItem('tg_id', String(tgId));
+                telegramInput.value = String(tgId);
+            }
+            if (tgUsername && telegramUsernameInput) {
+                sessionStorage.setItem('tg_username', String(tgUsername));
+                telegramUsernameInput.value = tgUsername;
+            }
+            if (nameField && !nameField.value && tgUser && (tgUser.first_name || tgUser.last_name)) {
+                nameField.value = [tgUser.first_name, tgUser.last_name].filter(Boolean).join(' ');
+            }
+        });
 
         const TOTAL_STEPS = 5;
 
@@ -763,6 +778,15 @@
         document.getElementById('applyForm').addEventListener('submit', async function(e) {
             e.preventDefault();
 
+            // ─── Guard: Telegram ID must be present BEFORE anything else runs ───
+            // This is now the ONLY submit validation for telegram_id. Nothing below
+            // this block (button state, serialization, fetch) may execute if it fails.
+            const telegramIdInput = document.getElementById('telegram_id_input');
+            if (!telegramIdInput || telegramIdInput.value.trim() === '') {
+                alert('Telegram identifikatori topilmadi. Iltimos bot ichida qayta oching.');
+                return;
+            }
+
             const btn = document.getElementById('submitBtn');
             const btnText = document.getElementById('btnText');
             const spinner = document.getElementById('btnSpinner');
@@ -778,10 +802,15 @@
 
             const formData = new FormData(this);
 
-            // Inject Telegram user data if available
-            const tgUser = tg ? tg.initDataUnsafe?.user : null;
-            if (tgUser?.username) formData.set('telegram_username', tgUser.username);
-            if (tgUser?.id) formData.set('telegram_id', String(tgUser.id));
+            // ─── Force-inject Telegram ID & Username directly into FormData ───
+            const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
+            const finalTgId = tgUser?.id || sessionStorage.getItem('tg_id') || document.getElementById('telegram_id_input').value || '';
+            const finalTgUsername = tgUser?.username || sessionStorage.getItem('tg_username') || '';
+
+            formData.set('telegram_id', finalTgId);
+            formData.set('telegram_username', finalTgUsername);
+
+            console.log("🚀 DEBUG - Sending Telegram ID to backend:", formData.get('telegram_id'));
 
             try {
                 const response = await fetch('/apply/{{ vacancy.id }}', {
@@ -789,23 +818,21 @@
                     body: formData
                 });
 
-                if (response.ok) {
-                    const data = await response.json().catch(() => ({}));
-                    // Hide form container completely
-                    document.getElementById('formContainer').classList.add('hidden');
-                    // Display Success View Screen
-                    document.getElementById('success-screen').classList.remove('hidden');
-                    window.scrollTo({ top: 0, behavior: 'smooth' });
-                } else {
+                if (!response.ok) {
                     const errorData = await response.json().catch(() => ({}));
                     throw new Error(errorData.detail || `HTTP ${response.status}: Ma'lumotlarni saqlashda xato.`);
                 }
+
+                const data = await response.json().catch(() => ({}));
+                document.getElementById('formContainer').classList.add('hidden');
+                document.getElementById('success-screen').classList.remove('hidden');
+                window.scrollTo({ top: 0, behavior: 'smooth' });
             } catch (error) {
-                console.error("Error submitting form:", error);
-                showAlert('Xatolik yuz berdi: ' + (error.message || 'Tarmoq xatosi! Iltimos, qayta urinib ko\'ring.'));
-                // Restore button state on error so it never freezes
+                console.error('Error submitting form:', error);
+                alert('Xatolik yuz berdi. Iltimos qaytadan urinib ko\'ring.');
+            } finally {
                 btn.disabled = false;
-                btnText.textContent = "Yuborish ✓";
+                btnText.textContent = 'Yuborish';
                 spinner.classList.add('hidden');
             }
         });

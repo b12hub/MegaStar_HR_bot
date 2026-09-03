@@ -64,7 +64,7 @@ async def add_custom_security_headers(request: Request, call_next):
     response.headers["ngrok-skip-browser-warning"] = "true"
     response.headers[
         "Content-Security-Policy"
-    ] = "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.tailwindcss.com; object-src 'none';"
+    ] = "script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.tailwindcss.com https://telegram.org; object-src 'none';"
     return response
 
 
