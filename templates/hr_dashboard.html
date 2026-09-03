@@ -1,25 +1,9 @@
-<!DOCTYPE html>
-<html lang="uz">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>MegaStar★ HR Portal - HR Boshqaruv Paneli</title>
-    <!-- Tailwind CSS CDN -->
-    <script src="https://cdn.tailwindcss.com"></script>
-</head>
-<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans antialiased">
+{% extends "layout.html" %}
 
-    <!-- Official Brand Header -->
-    <header class="brand-header flex items-center justify-between px-4 py-3.5 bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
-        <a href="/dashboard/hr" class="flex items-center">
-            <img src="/static/images/logo.png" alt="Mega Star" class="h-28 sm:h-32 w-auto object-contain" onerror="this.onerror=null; this.src='/static/images/megastar.jpeg';">
-        </a>
-        <span class="badge bg-red-50 text-red-600 text-xs font-semibold px-2.5 py-1 rounded-full border border-red-100">Karierangizni Boshlang</span>
-    </header>
+{% block title %}HR Boshqaruv Paneli — MegaStar★ HR Portal{% endblock %}
 
-    <!-- Main Content -->
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
+{% block content %}
+
         <!-- Page Title -->
         <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between pb-2 border-b border-gray-200">
             <div>
@@ -31,9 +15,81 @@
             </div>
         </div>
 
+        <!-- Overview: candidate/meeting KPIs -->
+        <section aria-labelledby="overview-heading">
+            <h2 id="overview-heading" class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Umumiy Ko'rinish</h2>
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+
+                <!-- KPI: Total Candidates -->
+                <a href="/dashboard/candidates" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition-shadow relative overflow-hidden block">
+                    <div class="absolute top-0 left-0 right-0 h-1 bg-blue-600"></div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-gray-500">JAMI NOMZODLAR</p>
+                            <h3 class="text-3xl font-black text-black mt-2">{{ total_candidates }}</h3>
+                            <p class="text-xs text-gray-400 mt-1">Barcha yuborilgan arizalar</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-xl bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-xl border border-blue-100">
+                            ●
+                        </div>
+                    </div>
+                </a>
+
+                <!-- KPI: Pending Review -->
+                <a href="/dashboard/candidates" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition-shadow relative overflow-hidden block">
+                    <div class="absolute top-0 left-0 right-0 h-1 bg-amber-500"></div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-gray-500">YANGI ARIZALAR</p>
+                            <h3 class="text-3xl font-black text-black mt-2">{{ pending_candidates }}</h3>
+                            <p class="text-xs text-gray-400 mt-1">Ko'rib chiqilishi kerak</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center font-bold text-xl border border-amber-100">
+                            !
+                        </div>
+                    </div>
+                </a>
+
+                <!-- KPI: Scheduled Meetings -->
+                <a href="/dashboard/meetings" class="bg-white rounded-xl border border-gray-200 shadow-sm p-6 hover:shadow-md transition-shadow relative overflow-hidden block sm:col-span-2 lg:col-span-1">
+                    <div class="absolute top-0 left-0 right-0 h-1 bg-emerald-500"></div>
+                    <div class="flex items-center justify-between">
+                        <div>
+                            <p class="text-xs font-bold uppercase tracking-wider text-gray-500">BELGILANGAN UCHRASHUVLAR</p>
+                            <h3 class="text-3xl font-black text-black mt-2">{{ scheduled_meetings }}</h3>
+                            <p class="text-xs text-gray-400 mt-1">Zoom havolasi yoki sanasi bilan</p>
+                        </div>
+                        <div class="h-12 w-12 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center font-bold text-lg border border-emerald-100">
+                            ✓
+                        </div>
+                    </div>
+                </a>
+
+            </div>
+        </section>
+
+        <!-- Quick Actions -->
+        <section aria-labelledby="quick-actions-heading">
+            <h2 id="quick-actions-heading" class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Tezkor Amallar</h2>
+            <div class="bg-white rounded-xl border border-gray-200 shadow-sm p-4 flex flex-wrap gap-3">
+                <a href="/dashboard/candidates" class="inline-flex items-center px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-lg text-sm transition">
+                    Nomzodlar jadvali
+                </a>
+                <a href="/dashboard/candidates/board" class="inline-flex items-center px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-lg text-sm transition">
+                    Kanban ko'rinishi
+                </a>
+                <a href="/dashboard/meetings" class="inline-flex items-center px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-800 font-semibold rounded-lg text-sm transition">
+                    Uchrashuvlar
+                </a>
+                <a href="/dashboard/vacancies/new" class="inline-flex items-center px-4 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-lg text-sm transition ml-auto">
+                    + Yangi Vakansiya
+                </a>
+            </div>
+        </section>
+
         <!-- Top Panel: AI Cost Analytics & Key Metrics -->
         <section aria-labelledby="analytics-heading">
-            <h2 id="analytics-heading" class="sr-only">AI Xarajatlar Tahlili</h2>
+            <h2 id="analytics-heading" class="text-xs font-bold uppercase tracking-wider text-gray-400 mb-3">Vakansiyalar Tahlili</h2>
             <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
                 
                 <!-- Card 1: Total AI Cost (USD) -->
@@ -196,14 +252,4 @@
             </div>
         </section>
 
-    </main>
-
-    <!-- Footer -->
-    <footer class="bg-white border-t border-gray-200 mt-auto py-4">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-400">
-            &copy; 2026 Mega Star. Barcha huquqlar himoyalangan.
-        </div>
-    </footer>
-
-</body>
-</html>
+{% endblock %}

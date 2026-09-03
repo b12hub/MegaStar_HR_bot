@@ -17,6 +17,7 @@ class Settings(BaseSettings):
         validation_alias=AliasChoices("TELEGRAM_BOT_TOKEN", "BOT_TOKEN")
     )
     HR_NOTIFICATION_CHAT_ID: Optional[int] = None
+    HR_CHAT_ID: str | int
     DIRECTOR_NOTIFICATION_CHAT_ID: Optional[int] = None
 
     # AI APIs

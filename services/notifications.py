@@ -82,6 +82,28 @@ async def send_tg_notification(
             logger.exception("Failed to send Telegram message to %s", chat_id)
 
 
+async def notify_hr_new_application(full_name: str, vacancy_title: str, phone_number: str) -> None:
+    """Notify the HR admin chat that a new candidate application has arrived."""
+    from bot.main import bot  # adjust to wherever your aiogram Bot instance actually lives
+    from config import settings  # adjust if HR_CHAT_ID lives elsewhere (e.g. bot/config.py)
+
+    message_text = (
+        "🔔 *Yangi Ariza Tushdi!*\n\n"
+        f"👤 Nomzod: {full_name}\n"
+        f"💼 Vakansiya: {vacancy_title}\n"
+        f"📞 Telefon: {phone_number}\n\n"
+        "HR Dashboard orqali kirib ko'rishingiz mumkin."
+    )
+    try:
+        await bot.send_message(
+            chat_id=settings.HR_CHAT_ID,
+            text=message_text,
+            parse_mode="Markdown",
+        )
+    except Exception:
+        logger.exception("Failed to send HR new-application notification")
+
+
 async def notify_candidate_status(
     telegram_id: int,
     msg_type: str,

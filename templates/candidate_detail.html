@@ -1,17 +1,12 @@
-<!DOCTYPE html>
-<html lang="uz">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<!--    <meta http-equiv="Content-Security-Policy" content="script-src 'self' 'unsafe-eval' 'unsafe-inline' https://cdn.tailwindcss.com; object-src 'none';">-->
-    <title>Nomzod Ma'lumotlari - {{ user.full_name if user else 'Nomzod' }}</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="stylesheet" href="/static/css/style.css">
-</head>
-<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans antialiased">
+{% extends "layout.html" %}
 
-    <!-- Header Navigation -->
-    <header class="bg-white border-b border-gray-200 sticky top-0 z-30 shadow-sm">
+{% block title %}Nomzod Ma'lumotlari - {{ user.full_name if user else 'Nomzod' }}{% endblock %}
+
+{% block content %}
+
+    <!-- Header Navigation (kept as in your original page; "sticky top-0" removed
+         so it doesn't stack awkwardly under the shared layout's own sticky navbar) -->
+    <header class="bg-white border-b border-gray-200 shadow-sm rounded-xl">
         <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
             <div class="flex justify-between items-center h-16">
                 <div class="flex items-center gap-3">
@@ -30,7 +25,7 @@
         </div>
     </header>
 
-    <main class="flex-1 max-w-5xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-6">
+    <div class="max-w-5xl mx-auto w-full space-y-6">
 
         <!-- Header Info Card -->
         <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
@@ -343,7 +338,7 @@
             </div>
         </div>
 
-    </main>
+    </div><!-- /max-w-5xl content wrapper -->
 
     <!-- Scheduling Modal -->
     <div id="scheduleModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="modal-title" role="dialog" aria-modal="true">
@@ -403,12 +398,9 @@
         </div>
     </div>
 
-    <footer class="bg-white border-t border-gray-200 mt-auto py-4">
-        <div class="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-400">
-            &copy; 2026 Mega Star. Barcha huquqlar himoyalangan.
-        </div>
-    </footer>
+{% endblock %}
 
+{% block scripts %}
     <script>
         document.addEventListener('DOMContentLoaded', () => {
             // ==========================================
@@ -572,5 +564,4 @@
             }
         });
     </script>
-</body>
-</html>
+{% endblock %}

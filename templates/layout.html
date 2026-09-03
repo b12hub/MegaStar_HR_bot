@@ -1,0 +1,53 @@
+<!DOCTYPE html>
+<html lang="uz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}MegaStar★ HR Portal{% endblock %}</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-50 text-gray-900 min-h-screen flex flex-col font-sans antialiased">
+
+    <!-- Header / Navbar -->
+    <header class="bg-white border-b border-gray-100 shadow-sm sticky top-0 z-50">
+        <div class="flex items-center justify-between px-4 py-3.5">
+            <a href="/dashboard/hr" class="flex items-center">
+                <img src="/static/images/logo.png" alt="Mega Star" class="h-28 sm:h-32 w-auto object-contain" onerror="this.onerror=null; this.src='/static/images/megastar.jpeg';">
+            </a>
+            <span class="bg-red-50 text-red-600 text-xs font-semibold px-2.5 py-1 rounded-full border border-red-100">Karierangizni Boshlang</span>
+        </div>
+
+        <!-- Section navigation -->
+        <nav class="flex items-center gap-1 px-4 border-t border-gray-100 overflow-x-auto">
+            {% set nav_items = [
+                ('/dashboard/hr', 'Vakansiyalar'),
+                ('/dashboard/candidates', 'Nomzodlar'),
+                ('/dashboard/meetings', 'Uchrashuvlar'),
+            ] %}
+            {% for href, label in nav_items %}
+                {% set is_active = request.url.path == href %}
+                <a href="{{ href }}"
+                   class="px-4 py-3 text-sm font-semibold border-b-2 whitespace-nowrap transition
+                          {% if is_active %}border-red-600 text-black{% else %}border-transparent text-gray-500 hover:text-black hover:border-gray-300{% endif %}">
+                    {{ label }}
+                </a>
+            {% endfor %}
+        </nav>
+    </header>
+
+    <!-- Main Content -->
+    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-gray-200 mt-auto py-4">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center text-xs text-gray-400">
+            &copy; 2026 Mega Star. Barcha huquqlar himoyalangan.
+        </div>
+    </footer>
+
+    {% block scripts %}{% endblock %}
+</body>
+</html>

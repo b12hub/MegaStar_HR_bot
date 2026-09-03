@@ -1,4 +1,4 @@
-from fastapi import APIRouter, HTTPException , Depends, Form, Request, status, BackgroundTasks, Query
+from fastapi import APIRouter, HTTPException, Depends, Form, Request, status, BackgroundTasks, Query
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlmodel import Session, select
@@ -6,12 +6,12 @@ from pydantic import BaseModel
 from datetime import datetime, timezone
 from typing import Optional, Union
 
-
 # Services
 from services.zoom_service import create_zoom_meeting
 from services.notifications import notify_candidate_status
 from services.llm_evaluator import evaluate_candidate_answers, generate_vacancy_questions
 from services.google_sheets import sync_candidates_to_sheet
+
 
 class ScheduleRequest(BaseModel):
     stage: str
@@ -35,23 +35,24 @@ from db.models import (
     PipelineStage,
 )
 
-
 import logging
+
 logger = logging.getLogger(__name__)
 
 
 def resolve_candidate_telegram_id(candidate: CandidateApplication, user: Optional[User] = None) -> Optional[int]:
     """Resolve a candidate's Telegram ID from either the application or related user record."""
     for candidate_value in (
-        getattr(candidate, "telegram_id", None),
-        getattr(user, "telegram_id", None) if user else None,
+            getattr(candidate, "telegram_id", None),
+            getattr(user, "telegram_id", None) if user else None,
     ):
         if candidate_value in (None, ""):
             continue
         try:
             return int(candidate_value)
         except (TypeError, ValueError):
-            logger.warning("Ignoring invalid Telegram ID for candidate %s: %r", getattr(candidate, "id", None), candidate_value)
+            logger.warning("Ignoring invalid Telegram ID for candidate %s: %r", getattr(candidate, "id", None),
+                           candidate_value)
             continue
     return None
 
@@ -62,19 +63,74 @@ templates = Jinja2Templates(directory="templates")
 
 
 @router.get("/candidates", response_class=HTMLResponse)
-async def redirect_candidates_list(
-    request: Request,
-    db: Session = Depends(get_session),
+async def get_candidates_list(
+        request: Request,
+        db: Session = Depends(get_session),
 ):
-    """Legacy alias: redirect the old /dashboard/candidates route to the kanban board."""
-    return RedirectResponse(url="/dashboard/candidates/board", status_code=status.HTTP_303_SEE_OTHER)
+    """Flat table of every candidate application, with Vacancy/Branch/Department
+    resolved, sorted newest first. (The kanban view is still available at
+    /dashboard/candidates/board.)"""
+    applications = db.exec(
+        select(CandidateApplication).order_by(CandidateApplication.created_at.desc())
+    ).all()
+
+    status_labels = {
+        "PENDING": ("Kutilmoqda", "gray"),
+        "REJECTED": ("Rad etildi", "red"),
+        "ACCEPTED": ("Qabul qilindi", "green"),
+        "HIRED": ("Ishga olindi", "green"),
+    }
+    interview_stage_values = {"HR_ONLINE", "HR_OFFLINE", "DIRECTOR_OFFLINE"}
+
+    rows = []
+    for app in applications:
+        user = db.get(User, app.user_id)
+        vacancy = db.get(Vacancy, app.vacancy_id)
+        branch = db.get(Branch, app.branch_id) if app.branch_id else None
+
+        raw_status = (
+            app.status.value if hasattr(app.status, "value") else str(app.status or "")
+        )
+        raw_stage = (
+            app.pipeline_stage.value
+            if hasattr(app.pipeline_stage, "value")
+            else str(app.pipeline_stage or "")
+        )
+
+        if raw_stage.upper() in interview_stage_values:
+            status_label, status_color = "Suhbat", "blue"
+        else:
+            status_label, status_color = status_labels.get(
+                raw_status.upper(), (raw_status.replace("_", " ").title() or "Noma'lum", "gray")
+            )
+
+        rows.append({
+            "id": app.id,
+            "full_name": user.full_name if user and user.full_name else "Noma'lum nomzod",
+            "vacancy_title": vacancy.title if vacancy else "-",
+            "department": vacancy.department if vacancy else "-",
+            "branch_name": branch.name if branch else "-",
+            "status_label": status_label,
+            "status_color": status_color,
+            "ai_score": app.ai_score if app.ai_score is not None else None,
+            "created_at": app.created_at,
+        })
+
+    return templates.TemplateResponse(
+        request=request,
+        name="candidates.html",
+        context={
+            "request": request,
+            "candidates": rows,
+        },
+    )
 
 
 @router.get("/candidates/board", response_class=HTMLResponse)
 async def get_candidate_board(
-    request: Request,
-    vacancy_id: Optional[int] = Query(None),
-    db: Session = Depends(get_session),
+        request: Request,
+        vacancy_id: Optional[int] = Query(None),
+        db: Session = Depends(get_session),
 ):
     """Render the candidate kanban board while keeping the route compatible with omitted query params."""
     statement = select(CandidateApplication)
@@ -151,7 +207,7 @@ async def get_candidate_board(
 
     return templates.TemplateResponse(
         request=request,
-        name="candidate_board.html",
+        name="candidates.html",
         context={
             "request": request,
             "board": board_payload,
@@ -162,27 +218,42 @@ async def get_candidate_board(
 
 @router.get("/meetings", response_class=HTMLResponse)
 async def get_meetings_page(
-    request: Request,
-    db: Session = Depends(get_session),
+        request: Request,
+        db: Session = Depends(get_session),
 ):
-    """Render the meetings dashboard page without filtering out records by accidental user constraints."""
-    meetings = db.exec(
-        select(Meeting)
-        .order_by(Meeting.scheduled_time.is_(None), Meeting.scheduled_time.asc())
-    ).all()
+    """Render only meetings that actually have a Zoom link or a scheduled time."""
+    all_meetings = db.exec(select(Meeting)).all()
+
+    stage_labels = {
+        "HR_ONLINE": "HR (Online)",
+        "HR_OFFLINE": "HR (Oflayn)",
+        "DIRECTOR_OFFLINE": "Direktor",
+    }
 
     serialized = []
-    for meeting in meetings:
-        user = db.get(User, db.get(CandidateApplication, meeting.candidate_id).user_id) if db.get(CandidateApplication, meeting.candidate_id) else None
-        candidate_name = user.full_name if user and user.full_name else "Noma'lum nomzod"
-        vacancy = db.get(Vacancy, meeting.vacancy_id) if meeting.vacancy_id else None
+    for meeting in all_meetings:
+        if not meeting.meeting_link and not meeting.meeting_time:
+            continue  # nothing scheduled/linked yet — leave it off the page
+
+        candidate = db.get(CandidateApplication, meeting.candidate_id)
+        user = db.get(User, candidate.user_id) if candidate else None
+        vacancy = db.get(Vacancy, candidate.vacancy_id) if candidate else None
+
+        raw_stage = (
+            meeting.stage.value if hasattr(meeting.stage, "value") else str(meeting.stage or "")
+        )
+
         serialized.append({
             "id": meeting.id,
-            "candidate_name": candidate_name,
+            "candidate_name": user.full_name if user and user.full_name else "Noma'lum nomzod",
             "vacancy_title": vacancy.title if vacancy else "-",
-            "scheduled_time": meeting.scheduled_time or meeting.meeting_time,
-            "status": str(meeting.status or "scheduled"),
+            "meeting_time": meeting.meeting_time,
+            "stage_label": stage_labels.get(raw_stage.upper(), raw_stage.replace("_", " ").title() or "-"),
+            "meeting_link": meeting.meeting_link,
         })
+
+    # Soonest / most relevant first; unscheduled-time entries (Zoom link only) sort last.
+    serialized.sort(key=lambda m: (m["meeting_time"] is None, m["meeting_time"] or datetime.min))
 
     return templates.TemplateResponse(
         request=request,
@@ -196,8 +267,8 @@ async def get_meetings_page(
 
 @router.get("/hr", response_class=HTMLResponse)
 async def get_hr_dashboard(
-    request: Request,
-    db: Session = Depends(get_session),
+        request: Request,
+        db: Session = Depends(get_session),
 ):
     statement = select(Vacancy).order_by(Vacancy.id)
     vacancies = db.exec(statement).all()
@@ -211,8 +282,28 @@ async def get_hr_dashboard(
     applications = db.exec(select(CandidateApplication)).all()
     for application in applications:
         candidate_counts[application.vacancy_id] = (
-            candidate_counts.get(application.vacancy_id, 0) + 1
+                candidate_counts.get(application.vacancy_id, 0) + 1
         )
+
+    # --- Overview KPIs for the new hr_dashboard.html "Overview" section ---
+    total_candidates = len(applications)
+
+    pending_candidates = 0
+    for application in applications:
+        raw_status = (
+            application.status.value
+            if hasattr(application.status, "value")
+            else str(application.status or "")
+        )
+        if raw_status.upper() in {"PENDING", "INITIAL"}:
+            pending_candidates += 1
+
+    # "Scheduled" = has a Zoom link or a meeting time set — same rule the
+    # /dashboard/meetings page uses, so this count matches what HR sees there.
+    all_meetings = db.exec(select(Meeting)).all()
+    scheduled_meetings = sum(
+        1 for m in all_meetings if m.meeting_link or m.meeting_time
+    )
 
     vacancy_rows = []
     for vacancy in vacancies:
@@ -231,7 +322,8 @@ async def get_hr_dashboard(
         recent_applications.append({
             "id": application.id,
             "full_name": user.full_name if user and user.full_name else "Noma'lum nomzod",
-            "vacancy_title": db.get(Vacancy, application.vacancy_id).title if db.get(Vacancy, application.vacancy_id) else "-",
+            "vacancy_title": db.get(Vacancy, application.vacancy_id).title if db.get(Vacancy,
+                                                                                     application.vacancy_id) else "-",
             "status": application.status.value if hasattr(application.status, "value") else str(application.status),
             "created_at": application.created_at,
         })
@@ -245,14 +337,17 @@ async def get_hr_dashboard(
             "recent_applications": recent_applications,
             "total_ai_cost": total_ai_cost,
             "active_vacancies_count": active_vacancies_count,
+            "total_candidates": total_candidates,
+            "pending_candidates": pending_candidates,
+            "scheduled_meetings": scheduled_meetings,
         },
     )
 
 
 @router.get("/vacancies/new", response_class=HTMLResponse)
 async def new_vacancy_page(
-    request: Request,
-    db: Session = Depends(get_session),
+        request: Request,
+        db: Session = Depends(get_session),
 ):
     branches = db.exec(select(Branch).order_by(Branch.id)).all()
     return templates.TemplateResponse(
@@ -267,12 +362,12 @@ async def new_vacancy_page(
 
 @router.post("/vacancies/new")
 async def create_vacancy_form(
-    request: Request,
-    title: str = Form(...),
-    department: str = Form(...),
-    description: str = Form(...),
-    branch_id: int = Form(...),
-    db: Session = Depends(get_session),
+        request: Request,
+        title: str = Form(...),
+        department: str = Form(...),
+        description: str = Form(...),
+        branch_id: int = Form(...),
+        db: Session = Depends(get_session),
 ):
     branch = db.get(Branch, branch_id)
     if not branch:
@@ -321,9 +416,9 @@ async def create_vacancy_form(
 
 @router.get("/vacancies/{vacancy_id}", response_class=HTMLResponse)
 async def get_vacancy_detail(
-    vacancy_id: int,
-    request: Request,
-    db: Session = Depends(get_session),
+        vacancy_id: int,
+        request: Request,
+        db: Session = Depends(get_session),
 ):
     vacancy = db.get(Vacancy, vacancy_id)
     if not vacancy:
@@ -347,11 +442,11 @@ async def get_vacancy_detail(
 
 @router.get("/vacancies/{vacancy_id}/candidates", response_class=HTMLResponse)
 async def get_vacancy_candidates(
-    vacancy_id: int,
-    request: Request,
-    sort_by: Optional[str] = None,
-    stage: Optional[str] = None,
-    db: Session = Depends(get_session),
+        vacancy_id: int,
+        request: Request,
+        sort_by: Optional[str] = None,
+        stage: Optional[str] = None,
+        db: Session = Depends(get_session),
 ):
     vacancy = db.get(Vacancy, vacancy_id)
     if not vacancy:
@@ -363,7 +458,7 @@ async def get_vacancy_candidates(
     statement = select(CandidateApplication).where(CandidateApplication.vacancy_id == vacancy_id)
     if stage:
         statement = statement.where(CandidateApplication.pipeline_stage == stage)
-        
+
     applications = db.exec(statement).all()
 
     candidates = []
@@ -380,7 +475,9 @@ async def get_vacancy_candidates(
                 "ai_score": application.ai_score if application.ai_score is not None else 0,
                 "objective_score": application.objective_score if application.objective_score is not None else 0,
                 "total_score": application.total_score if application.total_score is not None else 0,
-                "pipeline_stage": application.pipeline_stage.value if hasattr(application.pipeline_stage, "value") else str(application.pipeline_stage),
+                "pipeline_stage": application.pipeline_stage.value if hasattr(application.pipeline_stage,
+                                                                              "value") else str(
+                    application.pipeline_stage),
                 "user": user,
             }
         )
@@ -404,16 +501,16 @@ async def get_vacancy_candidates(
     )
 
 
-
 @router.get("/candidates/{candidate_id}", response_class=HTMLResponse)
 async def get_candidate_detail(
-    candidate_id: int,
-    request: Request,
-    db: Session = Depends(get_session),
+        candidate_id: int,
+        request: Request,
+        db: Session = Depends(get_session),
 ):
     application = db.get(CandidateApplication, candidate_id)
     if not application:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=f"CandidateApplication with id {candidate_id} not found")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND,
+                            detail=f"CandidateApplication with id {candidate_id} not found")
 
     vacancy = db.get(Vacancy, application.vacancy_id)
     user = db.get(User, application.user_id)
@@ -496,8 +593,8 @@ async def evaluate_candidate(
 
 @router.post("/vacancies/{vacancy_id}/toggle")
 async def toggle_vacancy_status(
-    vacancy_id: int,
-    db: Session = Depends(get_session),
+        vacancy_id: int,
+        db: Session = Depends(get_session),
 ):
     vacancy = db.get(Vacancy, vacancy_id)
     if not vacancy:
@@ -516,9 +613,9 @@ async def toggle_vacancy_status(
 
 @router.get("/vacancies/{vacancy_id}/edit", response_class=HTMLResponse)
 async def edit_vacancy_page(
-    vacancy_id: int,
-    request: Request,
-    db: Session = Depends(get_session),
+        vacancy_id: int,
+        request: Request,
+        db: Session = Depends(get_session),
 ):
     vacancy = db.get(Vacancy, vacancy_id)
     if not vacancy:
@@ -541,20 +638,20 @@ async def edit_vacancy_page(
 
 @router.post("/vacancies/{vacancy_id}/edit")
 async def update_vacancy(
-    vacancy_id: int,
-    request: Request,
-    title: str = Form(...),
-    department: str = Form(...),
-    description: str = Form(...),
-    branch_id: int = Form(...),
-    is_active: bool = Form(False),
-    generated_hard_skill_q1: str = Form(""),
-    generated_hard_skill_q2: str = Form(""),
-    generated_soft_skill_q1: str = Form(""),
-    generated_soft_skill_q2: str = Form(""),
-    custom_ai_prompt: Optional[str] = Form(None),
-    regenerate_ai: bool = Form(False),
-    db: Session = Depends(get_session),
+        vacancy_id: int,
+        request: Request,
+        title: str = Form(...),
+        department: str = Form(...),
+        description: str = Form(...),
+        branch_id: int = Form(...),
+        is_active: bool = Form(False),
+        generated_hard_skill_q1: str = Form(""),
+        generated_hard_skill_q2: str = Form(""),
+        generated_soft_skill_q1: str = Form(""),
+        generated_soft_skill_q2: str = Form(""),
+        custom_ai_prompt: Optional[str] = Form(None),
+        regenerate_ai: bool = Form(False),
+        db: Session = Depends(get_session),
 ):
     vacancy = db.get(Vacancy, vacancy_id)
     if not vacancy:
@@ -618,10 +715,11 @@ async def update_vacancy(
 
     return RedirectResponse(url="/dashboard/hr", status_code=status.HTTP_303_SEE_OTHER)
 
+
 @router.post("/vacancies/{vacancy_id}/delete")
 async def delete_vacancy(
-    vacancy_id: int,
-    db: Session = Depends(get_session),
+        vacancy_id: int,
+        db: Session = Depends(get_session),
 ):
     vacancy = db.get(Vacancy, vacancy_id)
     if not vacancy:
@@ -638,10 +736,10 @@ async def delete_vacancy(
 
 @router.post("/candidates/{candidate_id}/schedule")
 async def schedule_candidate(
-    candidate_id: int,
-    payload: ScheduleRequest,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_session)
+        candidate_id: int,
+        payload: ScheduleRequest,
+        background_tasks: BackgroundTasks,
+        db: Session = Depends(get_session)
 ):
     candidate = db.get(CandidateApplication, candidate_id)
     if not candidate:
@@ -756,16 +854,17 @@ async def schedule_candidate(
 
 @router.post("/candidates/{candidate_id}/reject")
 async def reject_candidate(
-    candidate_id: int,
-    background_tasks: BackgroundTasks,
-    db: Session = Depends(get_session)
+        candidate_id: int,
+        background_tasks: BackgroundTasks,
+        db: Session = Depends(get_session)
 ):
     candidate = db.get(CandidateApplication, candidate_id)
     if not candidate:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nomzod topilmadi")
 
     current_stage = str(candidate.pipeline_stage).upper() if candidate.pipeline_stage else ""
-    msg_type = "cancel_initial" if current_stage in ["NEW", "TEST_SUBMITTED", "INITIAL", "YANGI", ""] else "cancel_after_meeting"
+    msg_type = "cancel_initial" if current_stage in ["NEW", "TEST_SUBMITTED", "INITIAL", "YANGI",
+                                                     ""] else "cancel_after_meeting"
 
     candidate.status = ApplicationStatus.REJECTED
     candidate.pipeline_stage = PipelineStage.RAD_ETILDI
@@ -788,6 +887,7 @@ async def reject_candidate(
         "status": "success",
         "message": "Nomzod arizasi rad etildi."
     }
+
 
 @router.post("/sync-sheets", response_class=JSONResponse)
 async def sync_sheets_endpoint(

@@ -7,6 +7,7 @@ from uuid import uuid4
 
 from fastapi import (
     APIRouter,
+    BackgroundTasks,
     Depends,
     File,
     Form,
@@ -339,6 +340,7 @@ async def submit_candidate_application(
 @router.post("/apply/{vacancy_id}")
 async def submit_intake_form(
         vacancy_id: int,
+        background_tasks: BackgroundTasks,
         # Step 1: personal info
         full_name: str = Form(...),
         birth_date: Optional[str] = Form(None),
@@ -515,6 +517,7 @@ async def submit_intake_form(
 
     from services.scoring import calculate_objective_score
     from services.llm_evaluator import evaluate_candidate_answers
+    from services.notifications import notify_hr_new_application
 
     objective_score = calculate_objective_score(application)
     application.objective_score = objective_score
@@ -536,6 +539,16 @@ async def submit_intake_form(
     db.add(application)
     db.commit()
     db.refresh(application)
+
+    # Notify HR in Telegram now that the application is safely persisted.
+    # Runs as a background task so a slow/unavailable Telegram API never
+    # delays the response back to the candidate's Mini App.
+    background_tasks.add_task(
+        notify_hr_new_application,
+        full_name=full_name,
+        vacancy_title=vacancy.title,
+        phone_number=phone_number,
+    )
 
     # 7) Persist WorkExperience records from parsed JSON
     for exp in experience_list:
