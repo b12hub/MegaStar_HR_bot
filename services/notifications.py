@@ -6,7 +6,9 @@ from db.database import engine
 from db.models import Meeting, CandidateApplication, User, Vacancy
 from bot.main import bot
 import os
-
+from pathlib import Path
+from aiogram import Bot
+from aiogram.types import FSInputFile
 import httpx
 from fastapi import BackgroundTasks
 
@@ -28,6 +30,29 @@ BRANCH_MAPS = {
     "Outlet": "https://yandex.uz/maps/?ll=69.146093%2C41.271384&pt=69.146093%2C41.271384&z=17",
 }
 
+# Map normalized filial keys to PM Chat IDs from environment variables
+FILIAL_PM_MAP = {
+    "orikzor_15": os.getenv("Orikzor_15_PM_CHAT_ID"),
+    "orikzor_60": os.getenv("Orikzor_60_PM_CHAT_ID"),
+    "abusahiy": os.getenv("Abusahiy_PM_CHAT_ID"),
+    "issa_showroom": os.getenv("Issa_showroom_PM_CHAT_ID"),
+    "malika": os.getenv("Malika_PM_CHAT_ID"),
+    "oybek": os.getenv("Oybek_PM_CHAT_ID"),
+    "outlet": os.getenv("Outlet_PM_CHAT_ID"),
+}
+
+def get_pm_chat_id(filial_name: str) -> str | None:
+    """Normalizes filial name (strips apostrophes, spaces, casing) to fetch the PM Chat ID."""
+    if not filial_name:
+        return None
+    normalized_key = (
+        filial_name.lower()
+        .replace("'", "")
+        .replace("`", "")
+        .replace(" ", "_")
+        .strip()
+    )
+    return FILIAL_PM_MAP.get(normalized_key)
 
 def get_branch_map_url(branch_name: Optional[str]) -> str:
     default_branch = "Office Energy"
@@ -283,21 +308,60 @@ async def notify_candidate_job_offer(
     # a background task from dashboard.py, so it just sends directly.
     await send_tg_notification(telegram_id, message_text)
 
-async def notify_director_new_hire(
-    director_chat_id,
-    candidate_name: str,
-    vacancy_title: str,
-    start_datetime_str: str,
-) -> None:
-    """Alert the branch director that a new hire has been offered and when to expect them."""
+async def send_candidate_offered_notification(bot: Bot, candidate, filial_name: str):
+    """Sends candidate offer notification along with CV document to the filial's PM."""
+    pm_chat_id = get_pm_chat_id(filial_name)
+
+    if not pm_chat_id:
+        logger.error(f"No PM Chat ID configured for filial: '{filial_name}'")
+        return False
+
     message_text = (
-        "🆕 *Yangi xodim tasdiqlandi*\n\n"
-        f"👤 *Ism:* {candidate_name}\n"
-        f"💼 *Lavozim:* {vacancy_title}\n"
-        f"🗓 *Ishga chiqadigan vaqti:* {start_datetime_str}\n\n"
-        "Iltimos, xodimni kutib olishga tayyorlaning."
+        f"🎉 <b>Yangi Nomzod Taklifi (Offer)!</b>\n\n"
+        f"👤 <b>F.I.SH:</b> {candidate.full_name}\n"
+        f"📞 <b>Telefon:</b> {candidate.phone_number}\n"
+        f"💼 <b>Lavozim:</b> {getattr(candidate, 'position', 'Ko\'rsatilmagan')}\n"
+        f"📍 <b>Filial:</b> {filial_name}\n\n"
+        f"📄 Nomzodning rezyumesi (CV) ilova qilindi."
     )
-    try:
-        await bot.send_message(chat_id=director_chat_id, text=message_text, parse_mode="Markdown")
-    except Exception:
-        logger.exception("Failed to send new-hire notification to director chat_id=%s", director_chat_id)
+
+    cv_sent = False
+    cv_path = getattr(candidate, "cv_path", None) or getattr(candidate, "cv_file", None)
+    cv_file_id = getattr(candidate, "cv_file_id", None)
+
+    # 1. Send CV via server local file path
+    if cv_path and os.path.exists(cv_path):
+        try:
+            document = FSInputFile(cv_path, filename=f"CV_{candidate.full_name}.pdf")
+            await bot.send_document(
+                chat_id=int(pm_chat_id),
+                document=document,
+                caption=message_text,
+                parse_mode="HTML"
+            )
+            cv_sent = True
+        except Exception as e:
+            logger.error(f"Failed to send CV document from path: {e}")
+
+    # 2. Send CV via stored Telegram file_id
+    elif cv_file_id:
+        try:
+            await bot.send_document(
+                chat_id=int(pm_chat_id),
+                document=cv_file_id,
+                caption=message_text,
+                parse_mode="HTML"
+            )
+            cv_sent = True
+        except Exception as e:
+            logger.error(f"Failed to send CV file_id: {e}")
+
+    # 3. Fallback: Send text notification if CV file is missing
+    if not cv_sent:
+        await bot.send_message(
+            chat_id=int(pm_chat_id),
+            text=message_text + "\n\n⚠️ <i>Nomzodning CV fayli tizimda topilmadi.</i>",
+            parse_mode="HTML"
+        )
+
+    return True
