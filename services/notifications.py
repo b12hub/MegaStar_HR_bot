@@ -41,6 +41,7 @@ FILIAL_PM_MAP = {
     "outlet": os.getenv("Outlet_PM_CHAT_ID"),
 }
 
+
 def get_pm_chat_id(filial_name: str) -> str | None:
     """Normalizes filial name (strips apostrophes, spaces, casing) to fetch the PM Chat ID."""
     if not filial_name:
@@ -309,6 +310,64 @@ async def notify_candidate_job_offer(
     await send_tg_notification(telegram_id, message_text)
 
 async def send_candidate_offered_notification(bot: Bot, candidate, filial_name: str):
+    """Sends candidate offer notification along with CV document to the filial's PM."""
+    pm_chat_id = get_pm_chat_id(filial_name)
+
+    if not pm_chat_id:
+        logger.error(f"No PM Chat ID configured for filial: '{filial_name}'")
+        return False
+
+    message_text = (
+        f"🎉 <b>Yangi Nomzod Taklifi (Offer)!</b>\n\n"
+        f"👤 <b>F.I.SH:</b> {candidate.full_name}\n"
+        f"📞 <b>Telefon:</b> {candidate.phone_number}\n"
+        f"💼 <b>Lavozim:</b> {getattr(candidate, 'position', 'Ko\'rsatilmagan')}\n"
+        f"📍 <b>Filial:</b> {filial_name}\n\n"
+        f"📄 Nomzodning rezyumesi (CV) ilova qilindi."
+    )
+
+    cv_sent = False
+    cv_path = getattr(candidate, "cv_path", None) or getattr(candidate, "cv_file", None)
+    cv_file_id = getattr(candidate, "cv_file_id", None)
+
+    # 1. Send CV via server local file path
+    if cv_path and os.path.exists(cv_path):
+        try:
+            document = FSInputFile(cv_path, filename=f"CV_{candidate.full_name}.pdf")
+            await bot.send_document(
+                chat_id=int(pm_chat_id),
+                document=document,
+                caption=message_text,
+                parse_mode="HTML"
+            )
+            cv_sent = True
+        except Exception as e:
+            logger.error(f"Failed to send CV document from path: {e}")
+
+    # 2. Send CV via stored Telegram file_id
+    elif cv_file_id:
+        try:
+            await bot.send_document(
+                chat_id=int(pm_chat_id),
+                document=cv_file_id,
+                caption=message_text,
+                parse_mode="HTML"
+            )
+            cv_sent = True
+        except Exception as e:
+            logger.error(f"Failed to send CV file_id: {e}")
+
+    # 3. Fallback: Send text notification if CV file is missing
+    if not cv_sent:
+        await bot.send_message(
+            chat_id=int(pm_chat_id),
+            text=message_text + "\n\n⚠️ <i>Nomzodning CV fayli tizimda topilmadi.</i>",
+            parse_mode="HTML"
+        )
+
+    return True
+
+async def notify_director_new_hire(bot: Bot, candidate, filial_name: str):
     """Sends candidate offer notification along with CV document to the filial's PM."""
     pm_chat_id = get_pm_chat_id(filial_name)
 
