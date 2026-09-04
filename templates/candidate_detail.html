@@ -27,6 +27,12 @@
 
     <div class="max-w-5xl mx-auto w-full space-y-6">
 
+        {% if request.query_params.get('offer_sent') %}
+        <div class="bg-green-50 border border-green-200 text-green-800 rounded-xl p-4 text-sm font-semibold flex items-center gap-2">
+            ✅ Ish taklifi muvaffaqiyatli yuborildi va nomzodga Telegram orqali xabar berildi.
+        </div>
+        {% endif %}
+
         <!-- Header Info Card -->
         <div class="bg-white rounded-2xl border border-gray-200 p-6 shadow-sm flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
             <div class="flex items-center gap-4">
@@ -335,6 +341,9 @@
                 <button id="openScheduleBtn" class="px-6 py-2.5 bg-green-600 hover:bg-green-700 text-white text-sm font-bold rounded-xl transition shadow-sm">
                     ✅ Qabul Qilish (Uchrashuv)
                 </button>
+                <button id="openOfferBtn" class="px-6 py-2.5 bg-blue-600 hover:bg-blue-700 text-white text-sm font-bold rounded-xl transition shadow-sm">
+                    📝 Ish Taklifini Yuborish
+                </button>
             </div>
         </div>
 
@@ -369,9 +378,10 @@
                         </div>
                         <!-- Branch Dropdown for offline stages -->
                         <div id="branchContainer" class="hidden" style="display: none;">
-                            <label class="block text-sm font-bold text-gray-700 mb-1">Filialni tanlang</label>
+                            <label class="block text-sm font-bold text-gray-700 mb-1">Office manzilini tanlang</label>
                             <select id="branch_name" class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-green-500">
                                 <option value="" disabled selected>Tanlang...</option>
+                                <option value="Office Energy">Office Energy</option>
                                 <option value="Izza - Showroom">Izza - Showroom</option>
                                 <option value="Malika bozori, A3-do'kon">Malika bozori, A3-do'kon</option>
                                 <option value="O'rikzor bozori, 5-blok C15-do'kon">O'rikzor bozori, 5-blok C15-do'kon</option>
@@ -397,6 +407,82 @@
             </div>
         </div>
     </div>
+    {% if candidate.pipeline_stage and 'DIRECTOR_OFFLINE' in candidate.pipeline_stage|string|upper %}
+    <!-- Job Offer Modal -->
+    <div id="offerModal" class="hidden fixed inset-0 z-50 overflow-y-auto" aria-labelledby="offer-modal-title" role="dialog" aria-modal="true">
+        <div class="flex items-end justify-center min-h-screen pt-4 px-4 pb-20 text-center sm:block sm:p-0">
+            <!-- Background overlay -->
+            <div class="fixed inset-0 bg-gray-500 bg-opacity-75 transition-opacity" aria-hidden="true" id="offerModalOverlay"></div>
+            <span class="hidden sm:inline-block sm:align-middle sm:h-screen" aria-hidden="true">&#8203;</span>
+
+            <!-- Modal Panel -->
+            <div class="inline-block align-bottom bg-white rounded-2xl text-left overflow-hidden shadow-xl transform transition-all sm:my-8 sm:align-middle sm:max-w-lg w-full">
+                <!-- Real form POST + server redirect, on purpose: no JS/fetch needed for submission itself -->
+                <form id="offerForm" method="POST" action="/dashboard/candidates/{{ candidate.id }}/offer">
+                    <div class="bg-white px-4 pt-5 pb-4 sm:p-6 sm:pb-4">
+                        <h3 class="text-lg leading-6 font-extrabold text-gray-900 mb-1" id="offer-modal-title">Ish Taklifini Yuborish</h3>
+                        <p class="text-xs text-gray-500 mb-4">Nomzodga va filial rahbariga Telegram orqali avtomatik xabar yuboriladi.</p>
+                        <div class="space-y-4">
+                            <div>
+                                <label for="starting_salary" class="block text-sm font-bold text-gray-700 mb-1">Boshlang'ich oylik maosh</label>
+                                <input type="text" id="starting_salary" name="starting_salary" required
+                                       placeholder="Masalan: 8 000 000 so'm"
+                                       class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div class="grid grid-cols-2 gap-3">
+                                <div>
+                                    <label for="work_days" class="block text-sm font-bold text-gray-700 mb-1">Ish kunlari</label>
+                                    <input type="text" id="work_days" name="work_days" required
+                                           placeholder="Dushanba-Juma"
+                                           class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                                <div>
+                                    <label for="work_hours" class="block text-sm font-bold text-gray-700 mb-1">Ish soatlari</label>
+                                    <input type="text" id="work_hours" name="work_hours" required
+                                           placeholder="09:00 - 18:00"
+                                           class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                </div>
+                            </div>
+                            <div>
+                                <label for="start_datetime" class="block text-sm font-bold text-gray-700 mb-1">Birinchi ish kuni (sana va vaqt)</label>
+                                <input type="datetime-local" id="start_datetime" name="start_datetime" required
+                                       class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label for="location" class="block text-sm font-bold text-gray-700 mb-1">Ish joyi manzili (Filial)</label>
+                                <select id="location" name="location" required
+                                        class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="" disabled selected>Tanlang...</option>
+                                    <option value="Office Energy">Office Energy</option>
+                                    <option value="Izza - Showroom">Izza - Showroom</option>
+                                    <option value="Malika bozori, A3-do'kon">Malika bozori, A3-do'kon</option>
+                                    <option value="O'rikzor bozori, 5-blok C15-do'kon">O'rikzor bozori, 5-blok C15-do'kon</option>
+                                    <option value="O'rikzor bozori, 5-blok 60-do'kon">O'rikzor bozori, 5-blok 60-do'kon</option>
+                                    <option value="Abusaxiy bozori, E111-do'kon">Abusaxiy bozori, E111-do'kon</option>
+                                    <option value="Shaxrisabz filiali">Shaxrisabz filiali</option>
+                                    <option value="Namangan filiali">Namangan filiali</option>
+                                    <option value="Buxoro filiali">Buxoro filiali</option>
+                                    <option value="Qarshi filiali">Qarshi filiali</option>
+                                    <option value="Outlet">Outlet</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="bg-gray-50 px-4 py-3 sm:px-6 sm:flex sm:flex-row-reverse border-t border-gray-100">
+                        {% if candidate.pipeline_stage and 'DIRECTOR_OFFLINE' in candidate.pipeline_stage|string|upper %}
+                        <button type="submit" id="submitOfferBtn" class="w-full inline-flex justify-center rounded-xl border border-transparent shadow-sm px-4 py-2 bg-blue-600 text-base font-medium text-white hover:bg-blue-700 sm:ml-3 sm:w-auto sm:text-sm transition">
+                            Taklifni yuborish
+                        </button>
+                        {% endif %}
+                        <button type="button" id="closeOfferModalBtn" class="mt-3 w-full inline-flex justify-center rounded-xl border border-gray-300 shadow-sm px-4 py-2 bg-white text-base font-medium text-gray-700 hover:bg-gray-50 sm:mt-0 sm:ml-3 sm:w-auto sm:text-sm transition">
+                            Bekor qilish
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
 {% endblock %}
 
@@ -473,6 +559,17 @@
             if(openModalBtn) openModalBtn.addEventListener('click', toggleModal);
             if(closeModalBtn) closeModalBtn.addEventListener('click', toggleModal);
             if(modalOverlay) modalOverlay.addEventListener('click', toggleModal);
+
+            // Job Offer Modal Toggles (plain form POST — no fetch needed here,
+            // the browser handles submission + the server's redirect)
+            const offerModal = document.getElementById('offerModal');
+            const openOfferBtn = document.getElementById('openOfferBtn');
+            const closeOfferModalBtn = document.getElementById('closeOfferModalBtn');
+            const offerModalOverlay = document.getElementById('offerModalOverlay');
+            const toggleOfferModal = () => offerModal.classList.toggle('hidden');
+            if(openOfferBtn) openOfferBtn.addEventListener('click', toggleOfferModal);
+            if(closeOfferModalBtn) closeOfferModalBtn.addEventListener('click', toggleOfferModal);
+            if(offerModalOverlay) offerModalOverlay.addEventListener('click', toggleOfferModal);
 
             // Reject Logic
             if(rejectBtn) {

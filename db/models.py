@@ -45,6 +45,7 @@ class PipelineStage(str, enum.Enum):
     HR_ONLINE = "HR_ONLINE"
     HR_OFFLINE = "HR_OFFLINE"
     DIRECTOR_OFFLINE = "DIRECTOR_OFFLINE"
+    OFFERED = "OFFERED"
     RAD_ETILDI = "RAD_ETILDI"
     QABUL_QILINDI = "QABUL_QILINDI"
 
@@ -210,3 +211,17 @@ class Meeting(SQLModel, table=True):
     reminders_sent: bool = Field(default=False)
     created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
+
+class JobOffer(SQLModel, table=True):
+    __tablename__ = "job_offers"
+
+    id: Optional[int] = Field(default=None, primary_key=True)
+    candidate_id: int = Field(foreign_key="candidate_applications.id")
+
+    starting_salary: str
+    work_days: str
+    work_hours: str
+    start_datetime: datetime
+    location: str
+
+    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))

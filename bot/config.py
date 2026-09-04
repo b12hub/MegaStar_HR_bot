@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     HR_NOTIFICATION_CHAT_ID: Optional[int] = None
     HR_CHAT_ID: str | int
     DIRECTOR_NOTIFICATION_CHAT_ID: Optional[int] = None
+    DIRECTOR_CHAT_ID: str | int
 
     # AI APIs
     OPENAI_API_KEY: Optional[str] = None

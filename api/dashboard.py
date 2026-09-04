@@ -8,7 +8,11 @@ from typing import Optional, Union
 
 # Services
 from services.zoom_service import create_zoom_meeting
-from services.notifications import notify_candidate_status
+from services.notifications import (
+    notify_candidate_status,
+    notify_candidate_job_offer,
+    notify_director_new_hire,
+)
 from services.llm_evaluator import evaluate_candidate_answers, generate_vacancy_questions
 from services.google_sheets import sync_candidates_to_sheet
 
@@ -27,6 +31,7 @@ from db.models import (
     CandidateApplication,
     CandidateStage,
     InterviewStage,
+    JobOffer,
     LLMActionType,
     LLMUsageLog,
     User,
@@ -60,6 +65,66 @@ def resolve_candidate_telegram_id(candidate: CandidateApplication, user: Optiona
 router = APIRouter(prefix="/dashboard", tags=["Dashboard"])
 
 templates = Jinja2Templates(directory="templates")
+
+@router.get("/api/notifications")
+async def get_dashboard_notifications(db: Session = Depends(get_session)):
+    """Dynamic notifications for the dashboard bell icon."""
+
+    # 1. 5 Recent Applications
+    recent_apps = db.exec(
+        select(CandidateApplication)
+        .order_by(CandidateApplication.created_at.desc())
+        .limit(5)
+    ).all()
+
+    # 2. 5 Upcoming Meetings
+    now = datetime.now(timezone.utc)
+    upcoming_meetings = db.exec(
+        select(Meeting)
+        .where(Meeting.meeting_time > now)
+        .order_by(Meeting.meeting_time.asc())
+        .limit(5)
+    ).all()
+
+    notifications = []
+
+    for app in recent_apps:
+        user = db.get(User, app.user_id)
+        name = user.full_name if user and user.full_name else "Noma'lum nomzod"
+        vacancy = db.get(Vacancy, app.vacancy_id)
+        v_title = vacancy.title if vacancy else "Vakansiya"
+        time_str = app.created_at.strftime("%Y-%m-%d %H:%M") if app.created_at else "Yaqinda"
+
+        notifications.append({
+            "type": "new_application",
+            "message": f"Yangi ariza: {name} ({v_title})",
+            "time": time_str,
+            "link": f"/dashboard/candidates/{app.id}",
+            "raw_date": app.created_at or datetime.min.replace(tzinfo=timezone.utc)
+        })
+
+    for m in upcoming_meetings:
+        candidate = db.get(CandidateApplication, m.candidate_id)
+        user = db.get(User, candidate.user_id) if candidate else None
+        name = user.full_name if user and user.full_name else "Noma'lum nomzod"
+        time_str = m.meeting_time.strftime("%Y-%m-%d %H:%M") if m.meeting_time else "Yaqinda"
+
+        notifications.append({
+            "type": "upcoming_meeting",
+            "message": f"Yaqinlashayotgan suhbat: {name}",
+            "time": time_str,
+            "link": "/dashboard/meetings",
+            "raw_date": m.meeting_time or datetime.min.replace(tzinfo=timezone.utc)
+        })
+
+    # Sort combined by date desc
+    notifications.sort(key=lambda x: x["raw_date"], reverse=True)
+
+    # Strip non-serializable datetime objects before returning
+    for n in notifications:
+        del n["raw_date"]
+
+    return notifications[:10]
 
 
 @router.get("/candidates", response_class=HTMLResponse)
@@ -850,6 +915,93 @@ async def schedule_candidate(
         "message": f"Uchrashuv muvaffaqiyatli belgilandi ({payload.stage}).",
         "zoom_url": final_meeting_link if payload.stage == "hr_online" else None
     }
+
+
+@router.post("/candidates/{candidate_id}/offer")
+async def send_job_offer(
+        candidate_id: int,
+        background_tasks: BackgroundTasks,
+        starting_salary: str = Form(...),
+        work_days: str = Form(...),
+        work_hours: str = Form(...),
+        start_datetime: str = Form(...),
+        location: str = Form(...),
+        db: Session = Depends(get_session),
+):
+    candidate = db.get(CandidateApplication, candidate_id)
+    if not candidate:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Nomzod topilmadi")
+
+    user = db.get(User, candidate.user_id)
+    vacancy = db.get(Vacancy, candidate.vacancy_id)
+    branch = db.get(Branch, candidate.branch_id) if candidate.branch_id else None
+
+    # Robust datetime parsing (same pattern used by /schedule)
+    try:
+        parsed_start = datetime.fromisoformat(start_datetime.replace("Z", "+00:00"))
+        if parsed_start.tzinfo is None:
+            parsed_start = parsed_start.replace(tzinfo=timezone.utc)
+    except (ValueError, TypeError):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Ish boshlanish sanasi noto'g'ri formatda."
+        )
+
+    job_offer = JobOffer(
+        candidate_id=candidate.id,
+        starting_salary=starting_salary,
+        work_days=work_days,
+        work_hours=work_hours,
+        start_datetime=parsed_start,
+        location=location,
+    )
+    db.add(job_offer)
+
+    candidate.pipeline_stage = PipelineStage.OFFERED
+    db.add(candidate)
+    db.commit()
+
+    telegram_id = resolve_candidate_telegram_id(candidate, user)
+    candidate_name = user.full_name if (user and user.full_name) else f"Nomzod #{candidate.id}"
+    vacancy_title = vacancy.title if vacancy else "vakansiya"
+    start_str = parsed_start.strftime("%Y-%m-%d %H:%M")
+
+    if telegram_id:
+        background_tasks.add_task(
+            notify_candidate_job_offer,
+            telegram_id=telegram_id,
+            candidate_name=candidate_name,
+            vacancy_title=vacancy_title,
+            starting_salary=starting_salary,
+            work_days=work_days,
+            work_hours=work_hours,
+            start_datetime_str=start_str,
+            location=location,
+        )
+    else:
+        logger.error(f"Telegram ID is missing for Candidate ID {candidate_id}; offer message not sent to candidate.")
+
+    # Director's chat id: prefer the branch record, fall back to a global env setting.
+    director_chat_id = getattr(branch, "manager_telegram_chat_id", None) if branch else None
+    if not director_chat_id:
+        from bot.config import settings
+        director_chat_id = getattr(settings, "DIRECTOR_CHAT_ID", None)
+
+    if director_chat_id:
+        background_tasks.add_task(
+            notify_director_new_hire,
+            director_chat_id=director_chat_id,
+            candidate_name=candidate_name,
+            vacancy_title=vacancy_title,
+            start_datetime_str=start_str,
+        )
+    else:
+        logger.warning(f"No director chat id (branch or settings) for candidate {candidate_id}; director not notified.")
+
+    return RedirectResponse(
+        url=f"/dashboard/candidates/{candidate_id}?offer_sent=1",
+        status_code=status.HTTP_303_SEE_OTHER,
+    )
 
 
 @router.post("/candidates/{candidate_id}/reject")

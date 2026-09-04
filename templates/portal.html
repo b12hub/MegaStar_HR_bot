@@ -48,7 +48,8 @@
       <select id="filterBranch" class="ms-input">
         <option value="">Hammasi (Filiallar)</option>
         {% for b in branches %}
-        <option value="{{ b.id }}">{{ b.name }}</option>
+        <!-- Add the data-region attribute here -->
+        <option value="{{ b.id }}" data-region="{{ b.region }}">{{ b.name }}</option>
         {% endfor %}
       </select>
 
@@ -131,7 +132,39 @@
       });
     }
 
-    [filterRegion, filterBranch, filterDepartment, filterCategory].forEach((filter) => {
+    // 1. Cascading logic for the Branch dropdown
+    filterRegion.addEventListener('change', function() {
+      const selectedRegion = this.value;
+      const branchOptions = filterBranch.options;
+
+      for (let i = 0; i < branchOptions.length; i++) {
+        const option = branchOptions[i];
+
+        // Always show the default "Hammasi" option (which has no value)
+        if (!option.value) {
+          option.hidden = false;
+          continue;
+        }
+
+        // Show if no region is selected, OR if the branch's region matches
+        if (!selectedRegion || option.getAttribute('data-region') === selectedRegion) {
+          option.hidden = false;
+        } else {
+          option.hidden = true;
+        }
+      }
+
+      // If the currently selected branch is now hidden, reset the branch dropdown
+      if (filterBranch.selectedIndex > 0 && filterBranch.options[filterBranch.selectedIndex].hidden) {
+        filterBranch.value = '';
+      }
+
+      // Re-trigger the card filter
+      applyFilters();
+    });
+
+    // 2. Keep the existing card filtering logic for the other dropdowns
+    [filterBranch, filterDepartment, filterCategory].forEach((filter) => {
       filter.addEventListener('change', applyFilters);
     });
 

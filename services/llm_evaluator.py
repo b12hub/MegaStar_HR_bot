@@ -46,7 +46,13 @@ async def generate_vacancy_questions(
     system_prompt = (
         "Siz malakali HR mutaxassisisiz. Berilgan vakansiya lavozimi va tavsifi asosida "
         "nomzodlar uchun O'zbek tilida 2 ta hard-skill (kasbiy ko'nikmalar bo'yicha) va "
-        "2 ta soft-skill (vaziyatli/situatsion) savollarini tuzing. "
+        "2 ta soft-skill (vaziyatli/situatsion) savollarini tuzing. \n\n"
+        "MUHIM QOIDA (Qiyinlik darajasi):\n"
+        "Savollar Junior va Mid-level (boshlang'ich va o'rta) darajadagi nomzodlarga moslashtirilgan bo'lishi shart. "
+        "Savollarning qiyinlik darajasini standart intervyu savollaridan 30-40% ga kamaytiring. \n"
+        "- Hard-skill: O'ta murakkab yoki chuqur nazariy emas, kundalik amaliy vazifalarga e'tibor qarating.\n"
+        "- Soft-skill: Tushunishga oson, murakkab boshqaruvni talab qilmaydigan oddiy hayotiy vaziyatlarni bering.\n"
+        "- Uslub: Juda ilmiy yoki qiyin so'zlardan qoching, ochiq va sodda tilda yozing.\n\n"
         "Javobni quyidagi JSON formatida qaytaring:\n"
         "{\n"
         '  "hard_skill_q1": "1-kasbiy savol",\n'

@@ -14,6 +14,7 @@ from api.portal import router as hr_router
 from bot.main import bot, dp
 from db.database import init_db
 from seed import seed_vacancies_if_needed
+from services.notifications import send_meeting_reminders  # <-- Added Import
 
 load_dotenv()
 
@@ -21,16 +22,15 @@ scheduler = AsyncIOScheduler()
 
 
 def register_scheduler_jobs(scheduler_instance: AsyncIOScheduler) -> None:
-#     """Register periodic jobs, including reminder checks for upcoming meetings."""
-#     # Example: every 5 minutes, scan meetings in the next hour and send reminders to candidates.
-#     scheduler_instance.add_job(
-#         send_meeting_reminders,
-#         "interval",
-#         minutes=300,
-#         id="meeting-reminders",
-#         replace_existing=True,
-#     )
-    pass
+    """Register periodic jobs, including reminder checks for upcoming meetings."""
+    # Runs every 5 hours to scan for meetings and dispatch alerts
+    scheduler_instance.add_job(
+        send_meeting_reminders,
+        "interval",
+        hours=5,
+        id="meeting-reminders",
+        replace_existing=True,
+    )
 
 
 @asynccontextmanager

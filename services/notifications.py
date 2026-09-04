@@ -1,5 +1,11 @@
 import logging
 from typing import Optional
+from datetime import datetime, timedelta, timezone
+from sqlmodel import Session, select
+from db.database import engine
+from db.models import Meeting, CandidateApplication, User, Vacancy
+from bot.main import bot
+import os
 
 import httpx
 from fastapi import BackgroundTasks
@@ -9,6 +15,7 @@ from bot.config import settings
 logger = logging.getLogger(__name__)
 
 BRANCH_MAPS = {
+    "Office Energy": "https://yandex.uz/maps/-/CTXjF4pS",
     "Izza - Showroom": "https://yandex.uz/maps/?ll=69.146093%2C41.271384&pt=69.146093%2C41.271384&z=17",
     "Malika bozori, A3-do'kon": "https://yandex.uz/maps/10335/tashkent/?ll=69.270693%2C41.339429&pt=69.270693%2C41.339429&z=17",
     "O'rikzor bozori, 5-blok C15-do'kon": "https://yandex.uz/maps/10335/tashkent/?ll=69.150056%2C41.285935&pt=69.150056%2C41.285935&z=17",
@@ -23,7 +30,7 @@ BRANCH_MAPS = {
 
 
 def get_branch_map_url(branch_name: Optional[str]) -> str:
-    default_branch = "Izza - Showroom"
+    default_branch = "Office Energy"
     if not branch_name:
         return BRANCH_MAPS[default_branch]
 
@@ -80,6 +87,74 @@ async def send_tg_notification(
             )
         except Exception:  # noqa: BLE001
             logger.exception("Failed to send Telegram message to %s", chat_id)
+
+
+async def send_meeting_reminders():
+    """
+    Background task triggered by apscheduler.
+    Scans for meetings happening in the next 24 hours that haven't had a reminder sent.
+    """
+    now = datetime.now(timezone.utc)
+    twenty_four_hours_from_now = now + timedelta(hours=24)
+
+    hr_chat_id = os.getenv("HR_CHAT_ID")
+    director_chat_id = os.getenv("DIRECTOR_CHAT_ID")
+
+    with Session(engine) as db:
+        upcoming_meetings = db.exec(
+            select(Meeting)
+            .where(Meeting.meeting_time > now)
+            .where(Meeting.meeting_time <= twenty_four_hours_from_now)
+            .where(Meeting.reminders_sent == 0)
+        ).all()
+
+        for meeting in upcoming_meetings:
+            candidate = db.get(CandidateApplication, meeting.candidate_id)
+            if not candidate: continue
+
+            user = db.get(User, candidate.user_id)
+            vacancy = db.get(Vacancy, candidate.vacancy_id)
+
+            if not user or not vacancy: continue
+
+            candidate_name = user.full_name or "Noma'lum nomzod"
+            time_str = meeting.meeting_time.strftime("%Y-%m-%d %H:%M")
+            zoom_link = meeting.meeting_link or "Oflayn uchrashuv"
+
+            message_text = (
+                f"🔔 *Uchrashuv Eslatmasi*\n\n"
+                f"👤 *Nomzod:* {candidate_name}\n"
+                f"💼 *Vakansiya:* {vacancy.title}\n"
+                f"📅 *Vaqt:* {time_str}\n"
+                f"🔗 *Havola/Manzil:* {zoom_link}"
+            )
+
+            # 1. Notify Candidate
+            if user.telegram_id:
+                try:
+                    await bot.send_message(chat_id=user.telegram_id, text=message_text, parse_mode="Markdown")
+                except Exception as e:
+                    print(f"Failed to send reminder to candidate {user.telegram_id}: {e}")
+
+            # 2. Notify HR
+            if hr_chat_id:
+                try:
+                    await bot.send_message(chat_id=hr_chat_id, text=message_text, parse_mode="Markdown")
+                except Exception as e:
+                    print(f"Failed to send reminder to HR: {e}")
+
+            # 3. Notify Director
+            if director_chat_id:
+                try:
+                    await bot.send_message(chat_id=director_chat_id, text=message_text, parse_mode="Markdown")
+                except Exception as e:
+                    print(f"Failed to send reminder to Director: {e}")
+
+            # Lock the row from future alerts
+            meeting.reminders_sent = 1
+            db.add(meeting)
+
+        db.commit()
 
 
 async def notify_hr_new_application(full_name: str, vacancy_title: str, phone_number: str) -> None:
@@ -144,7 +219,7 @@ async def notify_candidate_status(
         ),
         "accept_boss_meeting": (
             "🌟 <b>So'nggi Bosqich!</b>\n\n"
-            "Siz barcha HR bosqichlaridan muvaffaqiyatli o'tdingiz. Endi sizni bevosita rahbarimiz bilan yuzma-yuz suhbat kutmoqda!\n\n"
+            "Siz barcha bosqichlaridan muvaffaqiyatli o'tmoqdasiz. Endi sizni bevosita rahbarimiz bilan yuzma-yuz suhbat kutmoqda!\n\n"
             f"🗓 <b>Vaqti:</b> {safe_time}\n"
             f"🏢 <b>Manzil:</b> {display_branch}\n"
             f"⏰ <b>Ish vaqti:</b> {work_hours}\n"
@@ -170,3 +245,59 @@ async def notify_candidate_status(
         await send_tg_notification(telegram_id, msg_text, background_tasks=background_tasks)
     else:
         logger.warning("Failed to generate notification: Invalid msg_type '%s' or missing telegram_id.", msg_type)
+
+
+async def notify_candidate_job_offer(
+        telegram_id: int,
+        candidate_name: str,
+        vacancy_title: str,
+        starting_salary: str,
+        work_days: str,
+        work_hours: str,
+        start_datetime_str: str,
+        location: str,
+) -> None:
+    """Formal job-offer message to the candidate. Uses the same HTML-formatted
+    send_tg_notification path as notify_candidate_status, since this is the
+    same class of candidate-facing pipeline update."""
+
+    # 1. Fetch the map URL using your existing function
+    map_url = get_branch_map_url(location)
+
+    # 2. Format the message with the HTML link
+    message_text = (
+        "🎉 <b>Tabriklaymiz, sizga ish taklif qilinmoqda!</b>\n\n"
+        f"Hurmatli {candidate_name}, siz barcha suhbat bosqichlaridan muvaffaqiyatli o'tdingiz. "
+        "Quyidagi shartlar asosida sizni jamoamizga taklif qilamiz:\n\n"
+        f"💼 <b>Lavozim:</b> {vacancy_title}\n"
+        f"💵 <b>Boshlang'ich oylik maosh:</b> {starting_salary}\n"
+        f"📅 <b>Ish kunlari:</b> {work_days}\n"
+        f"⏰ <b>Ish soatlari:</b> {work_hours}\n"
+        f"🗓 <b>Birinchi ish kuningiz:</b> {start_datetime_str}\n"
+        f"🏢 <b>Manzil:</b> {location}\n"
+        f"📍 <b>Xarita:</b> <a href='{map_url}'>Lokatsiya (Yandex Maps)</a>\n\n"
+        "Tabriklaymiz va jamoamizga xush kelibsiz! Savollaringiz bo'lsa, HR bilan bog'laning."
+    )
+
+    # No background_tasks here — this function is itself already dispatched as
+    # a background task from dashboard.py, so it just sends directly.
+    await send_tg_notification(telegram_id, message_text)
+
+async def notify_director_new_hire(
+    director_chat_id,
+    candidate_name: str,
+    vacancy_title: str,
+    start_datetime_str: str,
+) -> None:
+    """Alert the branch director that a new hire has been offered and when to expect them."""
+    message_text = (
+        "🆕 *Yangi xodim tasdiqlandi*\n\n"
+        f"👤 *Ism:* {candidate_name}\n"
+        f"💼 *Lavozim:* {vacancy_title}\n"
+        f"🗓 *Ishga chiqadigan vaqti:* {start_datetime_str}\n\n"
+        "Iltimos, xodimni kutib olishga tayyorlaning."
+    )
+    try:
+        await bot.send_message(chat_id=director_chat_id, text=message_text, parse_mode="Markdown")
+    except Exception:
+        logger.exception("Failed to send new-hire notification to director chat_id=%s", director_chat_id)
