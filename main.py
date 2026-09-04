@@ -1,7 +1,7 @@
 import asyncio
 import os
 from contextlib import asynccontextmanager
-
+from fastapi.responses import RedirectResponse
 import uvicorn
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from dotenv import load_dotenv
@@ -56,6 +56,10 @@ app.include_router(meetings_router)
 # Serve static files and uploaded CVs
 app.mount('/static', StaticFiles(directory='static'), name='static')
 app.mount('/uploads', StaticFiles(directory='uploads'), name='uploads')
+
+@app.get("/")
+def read_root():
+    return RedirectResponse(url="/docs")
 
 
 @app.middleware("http")
