@@ -4,13 +4,13 @@ services:
     container_name: megastar_db
     restart: always
     environment:
-      POSTGRES_DB: ${POSTGRES_DB:-megastar_db}
+      POSTGRES_DB: ${POSTGRES_DB:-megastar_hr}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-megastar_db}"]
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-megastar_hr}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -19,7 +19,7 @@ services:
     build: .
     container_name: megastar_web
     restart: always
-    command: uvicorn main:app --host 0.0.0.0 --port 8000
+    command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
     ports:
       - "8000:8000"
     env_file:
