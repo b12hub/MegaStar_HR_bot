@@ -432,6 +432,13 @@ async def create_vacancy_form(
         department: str = Form(...),
         description: str = Form(...),
         branch_id: int = Form(...),
+        reports_to: str = Form(""),
+        work_hours: str = Form("08:00 - 19:00"),
+        duties_responsibilities: str = Form(""),
+        required_qualifications: str = Form(""),
+        preferred_qualifications: str = Form(""),
+        salary_range: str = Form(""),
+        benefits: str = Form(""),
         db: Session = Depends(get_session),
 ):
     branch = db.get(Branch, branch_id)
@@ -441,9 +448,19 @@ async def create_vacancy_form(
             detail=f"Branch with id {branch_id} not found",
         )
 
+    # Give the LLM the richer structured context too (without changing its
+    # signature) — the extra sections just get appended to what it already
+    # receives as `description`. The DB still stores the clean, original
+    # description separately below.
+    llm_context = description
+    if duties_responsibilities.strip():
+        llm_context += f"\n\nAsosiy vazifalar va mas'uliyatlar:\n{duties_responsibilities.strip()}"
+    if required_qualifications.strip():
+        llm_context += f"\n\nTalab qilinadigan malaka va ko'nikmalar:\n{required_qualifications.strip()}"
+
     # Invoke LLM evaluator
     llm_result = await generate_vacancy_questions(
-        title=title, description=description
+        title=title, description=llm_context
     )
 
     questions = llm_result.get("questions", {})
@@ -466,6 +483,13 @@ async def create_vacancy_form(
         department=department,
         description=description,
         branch_id=branch_id,
+        reports_to=reports_to.strip() or None,
+        work_hours=work_hours.strip() or "08:00 - 19:00",
+        duties_responsibilities=duties_responsibilities.strip() or None,
+        required_qualifications=required_qualifications.strip() or None,
+        preferred_qualifications=preferred_qualifications.strip() or None,
+        salary_range=salary_range.strip() or None,
+        benefits=benefits.strip() or None,
         generated_hard_skill_q1=questions.get("hard_skill_q1", ""),
         generated_hard_skill_q2=questions.get("hard_skill_q2", ""),
         generated_soft_skill_q1=questions.get("soft_skill_q1", ""),

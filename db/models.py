@@ -98,6 +98,17 @@ class Vacancy(SQLModel, table=True):
     category: Optional[str] = Field(default=None)
     description: str
     branch_id: int = Field(foreign_key="branches.id")
+
+    # --- New structured job-posting fields (Task 1) ---
+    reports_to: Optional[str] = Field(default=None)
+    job_summary: Optional[str] = Field(default=None)
+    work_hours: Optional[str] = Field(default="08:00 - 19:00")
+    duties_responsibilities: Optional[str] = Field(default=None)
+    required_qualifications: Optional[str] = Field(default=None)
+    preferred_qualifications: Optional[str] = Field(default=None)
+    salary_range: Optional[str] = Field(default=None)
+    benefits: Optional[str] = Field(default=None)
+
     generated_hard_skill_q1: Optional[str] = Field(default=None)
     generated_hard_skill_q2: Optional[str] = Field(default=None)
     generated_soft_skill_q1: Optional[str] = Field(default=None)

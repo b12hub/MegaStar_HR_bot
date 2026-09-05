@@ -19,7 +19,7 @@
 
     <!-- Main Content -->
     <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
-        
+
         <!-- Navigation & Actions Bar -->
         <div class="flex items-center justify-between">
             <a href="/dashboard/hr" class="inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg bg-white border border-gray-300 text-gray-700 hover:bg-gray-50 hover:text-black transition shadow-sm">
@@ -33,65 +33,164 @@
         <!-- Vacancy Form Card -->
         <section class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 sm:p-8 relative overflow-hidden" aria-labelledby="form-heading">
             <div class="absolute top-0 left-0 right-0 h-1 bg-red-600"></div>
-            
+
             <div class="border-b border-gray-100 pb-6">
                 <span class="text-xs font-bold uppercase tracking-wider text-red-600">HR Boshqaruvi</span>
                 <h1 id="form-heading" class="text-2xl sm:text-3xl font-black text-black mt-1">
                     Yangi Vakansiya Biriktirish
                 </h1>
                 <p class="text-sm text-gray-500 mt-1">
-                    Vakansiya tafsilotlarini kiriting. AI tizimi avtomatik ravishda intervyu savollarini shakllantiradi.
+                    Har bir bo'limni to'ldiring — bu ma'lumotlar nomzodlarga aniq va tuzilgan lavozim e'loni sifatida ko'rsatiladi.
                 </p>
             </div>
 
-            <form id="vacancyForm" action="/dashboard/vacancies/new" method="POST" class="mt-8 space-y-6">
-                
-                <!-- Title & Department Row -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <form id="vacancyForm" action="/dashboard/vacancies/new" method="POST" class="mt-8 space-y-8">
+
+                <!-- SECTION 1: Job Title and Basic Details -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-red-600 uppercase tracking-wider">
+                        1. Lavozim va Asosiy Ma'lumotlar
+                    </legend>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="title" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                Rasmiy lavozim nomi <span class="text-red-600">*</span>
+                            </label>
+                            <input type="text" id="title" name="title" required
+                                   placeholder="Masalan: Sotuvchi-Konsultant, Menejer"
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                        </div>
+                        <div>
+                            <label for="department" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                Bo'lim <span class="text-red-600">*</span>
+                            </label>
+                            <input type="text" id="department" name="department" required
+                                   placeholder="Masalan: Savdo, Moliya, Logistika, IT"
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                        </div>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="branch_id" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                Joylashuv / Filial <span class="text-red-600">*</span>
+                            </label>
+                            <select id="branch_id" name="branch_id" required
+                                    class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition bg-white shadow-xs">
+                                <option value="" disabled selected>Filialni tanlang</option>
+                                {% for branch in branches %}
+                                    <option value="{{ branch.id }}">{{ branch.name }} ({{ branch.address }})</option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="reports_to" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                Kimga bo'ysunadi (Rahbar lavozimi)
+                            </label>
+                            <input type="text" id="reports_to" name="reports_to"
+                                   placeholder="Masalan: Filial Direktori, Savdo Bo'limi Boshlig'i"
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- SECTION 2: Job Summary/Purpose -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-red-600 uppercase tracking-wider">
+                        2. Lavozim Maqsadi va Qisqacha Tavsif
+                    </legend>
+
                     <div>
-                        <label for="title" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                            Vakansiya Nomi <span class="text-red-600">*</span>
+                        <label for="description" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Umumiy tavsif <span class="text-red-600">*</span>
                         </label>
-                        <input type="text" id="title" name="title" required
-                               placeholder="Masalan: Sotuvchi-Konsultant, Menejer"
+                        <textarea id="description" name="description" rows="5" required
+                                  placeholder="Ushbu lavozim nima uchun mavjud va u kompaniyaga qanday qiymat qo'shishini qisqacha yozing..."
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs"></textarea>
+                        <p class="text-xs text-gray-400 mt-1.5">
+                            Ushbu matn asosida OpenAI gpt-4o-mini modeli intervyu savollarini avtomatik shakllantiradi.
+                        </p>
+                    </div>
+
+                    <div class="max-w-xs">
+                        <label for="work_hours" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Ish vaqti
+                        </label>
+                        <input type="text" id="work_hours" name="work_hours" value="08:00 - 19:00"
+                               placeholder="08:00 - 19:00"
+                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                    </div>
+                </fieldset>
+
+                <!-- SECTION 3: Duties and Responsibilities -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-red-600 uppercase tracking-wider">
+                        3. Vazifalar va Mas'uliyatlar
+                    </legend>
+                    <div>
+                        <label for="duties_responsibilities" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Asosiy kundalik vazifalar
+                        </label>
+                        <textarea id="duties_responsibilities" name="duties_responsibilities" rows="5"
+                                  placeholder="Eng muhimidan boshlab ro'yxat qiling, masalan:&#10;1. Mijozlarga xizmat ko'rsatish va savdo maslahati&#10;2. Kassa operatsiyalarini yuritish&#10;3. Do'kon vitrinasini tartibda saqlash"
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs"></textarea>
+                        <p class="text-xs text-gray-400 mt-1.5">Vazifalarni muhimlik darajasi bo'yicha, yuqoridan pastga tartibda yozing.</p>
+                    </div>
+                </fieldset>
+
+                <!-- SECTION 4: Required Qualifications -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-red-600 uppercase tracking-wider">
+                        4. Talab Qilinadigan Malakalar
+                    </legend>
+                    <div>
+                        <label for="required_qualifications" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Majburiy talim, tajriba, ko'nikma va litsenziyalar
+                        </label>
+                        <textarea id="required_qualifications" name="required_qualifications" rows="4"
+                                  placeholder="Masalan: O'rta maxsus yoki oliy ma'lumot, kamida 1 yillik savdo tajribasi, 1C dasturi bilan ishlay olish, haydovchilik guvohnomasi (B toifa)"
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs"></textarea>
+                    </div>
+                </fieldset>
+
+                <!-- SECTION 5: Preferred Qualifications -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-red-600 uppercase tracking-wider">
+                        5. Qo'shimcha Afzalliklar
+                    </legend>
+                    <div>
+                        <label for="preferred_qualifications" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            "Bo'lsa, yaxshi bo'lardi" ko'nikma va tajribalar
+                        </label>
+                        <textarea id="preferred_qualifications" name="preferred_qualifications" rows="4"
+                                  placeholder="Masalan: Ingliz tili bilish, CRM tizimlarida ilgari ishlagan tajriba, moliyaviy sohada qo'shimcha sertifikat"
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs"></textarea>
+                    </div>
+                </fieldset>
+
+                <!-- SECTION 6: Salary and Benefits -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-red-600 uppercase tracking-wider">
+                        6. Maosh va Ijtimoiy Paket
+                    </legend>
+                    <div>
+                        <label for="salary_range" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Maosh oralig'i
+                        </label>
+                        <input type="text" id="salary_range" name="salary_range"
+                               placeholder="Masalan: 6 000 000 - 10 000 000 so'm (+ bonuslar)"
                                class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs">
                     </div>
                     <div>
-                        <label for="department" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                            Bo'lim <span class="text-red-600">*</span>
+                        <label for="benefits" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Sug'urta, ta'til va boshqa imtiyozlar
                         </label>
-                        <input type="text" id="department" name="department" required
-                               placeholder="Masalan: Savdo, Moliya, Logistika, IT"
-                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                        <textarea id="benefits" name="benefits" rows="4"
+                                  placeholder="Masalan: Tibbiy sug'urta, yillik 24 kunlik pullik ta'til, korporativ transport, oylik bonus tizimi"
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs"></textarea>
                     </div>
-                </div>
-
-                <!-- Branch Select -->
-                <div>
-                    <label for="branch_id" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                        Filial <span class="text-red-600">*</span>
-                    </label>
-                    <select id="branch_id" name="branch_id" required
-                            class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition bg-white shadow-xs">
-                        <option value="" disabled selected>Filialni tanlang</option>
-                        {% for branch in branches %}
-                            <option value="{{ branch.id }}">{{ branch.name }} ({{ branch.address }})</option>
-                        {% endfor %}
-                    </select>
-                </div>
-
-                <!-- Description Textarea -->
-                <div>
-                    <label for="description" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                        Vakansiya Tavsifi <span class="text-red-600">*</span>
-                    </label>
-                    <textarea id="description" name="description" rows="6" required
-                              placeholder="Vakansiya vazifalari, nomzodga qo'yiladigan talablar va ish sharoitlari haqida batafsil ma'lumot kiriting..."
-                              class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition shadow-xs"></textarea>
-                    <p class="text-xs text-gray-400 mt-1.5">
-                        Kiritilgan tavsif asosida OpenAI gpt-4o-mini modeli yordamida 2 ta Hard-Skill va 2 ta Soft-Skill savollari avtomatik tarzda yaratiladi.
-                    </p>
-                </div>
+                </fieldset>
 
                 <!-- Actions Row -->
                 <div class="flex flex-col sm:flex-row items-center justify-between gap-4 pt-6 border-t border-gray-100">

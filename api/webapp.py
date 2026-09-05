@@ -167,6 +167,39 @@ def show_portal(request: Request, db: Session = Depends(get_session)):
     )
 
 
+@router.get("/apply/vacancy/{vacancy_id}", response_class=HTMLResponse)
+async def show_vacancy_detail(
+        vacancy_id: int,
+        request: Request,
+        db: Session = Depends(get_session),
+):
+    """New step in the candidate flow: Vacancy List -> this detail page ->
+    'Apply Now' -> the existing /apply/{vacancy_id} intake form.
+    Renders vacancy_public_detail.html (kept distinct from the HR-admin
+    templates/vacancy_detail.html, which is a different page for a different
+    audience — see the chat note on this)."""
+    vacancy = db.get(Vacancy, vacancy_id)
+
+    if not vacancy or not getattr(vacancy, "is_active", True):
+        return templates.TemplateResponse(
+            request=request,
+            name="error.html",
+            context={
+                "request": request,
+                "message": "Kechirasiz, ushbu vakansiya yopilgan yoki mavjud emas.",
+            },
+            status_code=404
+        )
+
+    branch = db.get(Branch, vacancy.branch_id) if vacancy.branch_id else None
+
+    return templates.TemplateResponse(
+        request=request,
+        name="vacancy_public_detail.html",
+        context={"request": request, "vacancy": vacancy, "branch": branch},
+    )
+
+
 @router.get("/apply/{vacancy_id}", response_class=HTMLResponse)
 async def serve_intake_form(
         vacancy_id: int,
