@@ -1,5 +1,6 @@
 import enum
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 from enum import Enum
 from typing import Any, Dict, Optional
 
@@ -73,7 +74,7 @@ class User(SQLModel, table=True):
     full_name: Optional[str] = Field(default=None)
     phone_number: Optional[str] = Field(default=None)
     role: str = Field(default="candidate")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(ZoneInfo("Asia/Tashkent")))
 
 
 class LLMUsageLog(SQLModel, table=True):
@@ -84,7 +85,7 @@ class LLMUsageLog(SQLModel, table=True):
     tokens_input: int
     tokens_output: int
     cost_usd: float
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(ZoneInfo("Asia/Tashkent")))
 
 
 class Vacancy(SQLModel, table=True):
@@ -119,7 +120,7 @@ class Vacancy(SQLModel, table=True):
     soft_skill_q2: Optional[str] = Field(default=None)
     llm_cost_usd: float = Field(default=0.0)
     is_active: bool = Field(default=True)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(ZoneInfo("Asia/Tashkent")))
 
 
 class CandidateApplication(SQLModel, table=True):
@@ -178,7 +179,7 @@ class CandidateApplication(SQLModel, table=True):
     total_score: Optional[int] = Field(default=0)
     ai_reasoning: Optional[str] = Field(default=None)
     pipeline_stage: PipelineStage = Field(default=PipelineStage.YANGI, sa_column=Column(String))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(ZoneInfo("Asia/Tashkent")))
 
 
 class WorkExperience(SQLModel, table=True):
@@ -220,7 +221,7 @@ class Meeting(SQLModel, table=True):
     meeting_link: Optional[str] = Field(default=None)
     is_completed: bool = Field(default=False)
     reminders_sent: bool = Field(default=False)
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(ZoneInfo("Asia/Tashkent")))
 
 
 class JobOffer(SQLModel, table=True):
@@ -235,4 +236,4 @@ class JobOffer(SQLModel, table=True):
     start_datetime: datetime
     location: str
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(ZoneInfo("Asia/Tashkent")))

@@ -70,53 +70,141 @@
 
             <form id="vacancyEditForm" action="/dashboard/vacancies/{{ vacancy.id }}/edit" method="POST" class="mt-8 space-y-6">
                 
-                <!-- Title & Department Row -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- SECTION 1: Job Title and Basic Details -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-blue-600 uppercase tracking-wider">
+                        1. Lavozim va Asosiy Ma'lumotlar
+                    </legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="title" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                Rasmiy lavozim nomi <span class="text-red-600">*</span>
+                            </label>
+                            <input type="text" id="title" name="title" required value="{{ vacancy.title }}"
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                        </div>
+                        <div>
+                            <label for="department" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                Bo'lim <span class="text-red-600">*</span>
+                            </label>
+                            <input type="text" id="department" name="department" required value="{{ vacancy.department }}"
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="branch_id" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                Joylashuv / Filial <span class="text-red-600">*</span>
+                            </label>
+                            <select id="branch_id" name="branch_id" required
+                                    class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition bg-white shadow-xs">
+                                <option value="" disabled>Filialni tanlang</option>
+                                {% for branch in branches %}
+                                    <option value="{{ branch.id }}" {% if branch.id == vacancy.branch_id %}selected{% endif %}>
+                                        {{ branch.name }} ({{ branch.address }})
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </div>
+                        <div>
+                            <label for="reports_to" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                Kimga bo'ysunadi (Rahbar lavozimi)
+                            </label>
+                            <input type="text" id="reports_to" name="reports_to" value="{{ vacancy.reports_to or '' }}"
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                        </div>
+                    </div>
+                </fieldset>
+
+                <!-- SECTION 2: Job Summary/Purpose -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-blue-600 uppercase tracking-wider">
+                        2. Lavozim Maqsadi va Qisqacha Tavsif
+                    </legend>
                     <div>
-                        <label for="title" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                            Vakansiya Nomi <span class="text-red-600">*</span>
+                        <label for="job_summary" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Umumiy tavsif <span class="text-red-600">*</span>
                         </label>
-                        <input type="text" id="title" name="title" required
-                               value="{{ vacancy.title }}"
-                               placeholder="Masalan: Sotuvchi-Konsultant, Menejer"
+                        <textarea id="job_summary" name="job_summary" rows="5" required
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">{{ vacancy.job_summary or vacancy.description or '' }}</textarea>
+                        <p class="text-xs text-gray-400 mt-1.5">
+                            Ushbu matn asosida OpenAI gpt-4o-mini modeli intervyu savollarini avtomatik shakllantiradi.
+                        </p>
+                    </div>
+                    <div class="max-w-xs">
+                        <label for="work_hours" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Ish vaqti
+                        </label>
+                        <input type="text" id="work_hours" name="work_hours" value="{{ vacancy.work_hours or '' }}"
                                class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">
                     </div>
+                </fieldset>
+
+                <!-- SECTION 3: Duties and Responsibilities -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-blue-600 uppercase tracking-wider">
+                        3. Vazifalar va Mas'uliyatlar
+                    </legend>
                     <div>
-                        <label for="department" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                            Bo'lim <span class="text-red-600">*</span>
+                        <label for="duties_responsibilities" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Asosiy kundalik vazifalar
                         </label>
-                        <input type="text" id="department" name="department" required
-                               value="{{ vacancy.department }}"
-                               placeholder="Masalan: Savdo, Moliya, Logistika, IT"
-                               class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                        <textarea id="duties_responsibilities" name="duties_responsibilities" rows="5"
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">{{ vacancy.duties_responsibilities or '' }}</textarea>
+                        <p class="text-xs text-gray-400 mt-1.5">Vazifalarni muhimlik darajasi bo'yicha, yuqoridan pastga tartibda yozing.</p>
                     </div>
-                </div>
+                </fieldset>
 
-                <!-- Branch Select -->
-                <div>
-                    <label for="branch_id" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                        Filial <span class="text-red-600">*</span>
-                    </label>
-                    <select id="branch_id" name="branch_id" required
-                            class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition bg-white shadow-xs">
-                        <option value="" disabled>Filialni tanlang</option>
-                        {% for branch in branches %}
-                            <option value="{{ branch.id }}" {% if branch.id == vacancy.branch_id %}selected{% endif %}>
-                                {{ branch.name }} ({{ branch.address }})
-                            </option>
-                        {% endfor %}
-                    </select>
-                </div>
+                <!-- SECTION 4: Required Qualifications -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-blue-600 uppercase tracking-wider">
+                        4. Talab Qilinadigan Malakalar
+                    </legend>
+                    <div>
+                        <label for="required_qualifications" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Majburiy talim, tajriba, ko'nikma va litsenziyalar
+                        </label>
+                        <textarea id="required_qualifications" name="required_qualifications" rows="4"
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">{{ vacancy.required_qualifications or '' }}</textarea>
+                    </div>
+                </fieldset>
 
-                <!-- Description Textarea -->
-                <div>
-                    <label for="description" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
-                        Vakansiya Tavsifi <span class="text-red-600">*</span>
-                    </label>
-                    <textarea id="description" name="description" rows="6" required
-                              placeholder="Vakansiya vazifalari, nomzodga qo'yiladigan talablar va ish sharoitlari haqida batafsil ma'lumot kiriting..."
-                              class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">{{ vacancy.description }}</textarea>
-                </div>
+                <!-- SECTION 5: Preferred Qualifications -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-blue-600 uppercase tracking-wider">
+                        5. Qo'shimcha Afzalliklar
+                    </legend>
+                    <div>
+                        <label for="preferred_qualifications" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            "Bo'lsa, yaxshi bo'lardi" ko'nikma va tajribalar
+                        </label>
+                        <textarea id="preferred_qualifications" name="preferred_qualifications" rows="4"
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">{{ vacancy.preferred_qualifications or '' }}</textarea>
+                    </div>
+                </fieldset>
+
+                <!-- SECTION 6: Salary and Benefits -->
+                <fieldset class="border border-gray-200 rounded-xl p-5 space-y-4">
+                    <legend class="px-2 text-xs font-extrabold text-blue-600 uppercase tracking-wider">
+                        6. Maosh va Ijtimoiy Paket
+                    </legend>
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div>
+                            <label for="salary_range" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                                Maosh oralig'i
+                            </label>
+                            <input type="text" id="salary_range" name="salary_range" value="{{ vacancy.salary_range or '' }}"
+                                   class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">
+                        </div>
+                    </div>
+                    <div>
+                        <label for="benefits" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
+                            Sug'urta, ta'til va boshqa imtiyozlar
+                        </label>
+                        <textarea id="benefits" name="benefits" rows="4"
+                                  class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">{{ vacancy.benefits or '' }}</textarea>
+                    </div>
+                </fieldset>
 
                 <!-- Status Checkbox -->
                 <div class="p-4 bg-gray-50 rounded-xl border border-gray-200">

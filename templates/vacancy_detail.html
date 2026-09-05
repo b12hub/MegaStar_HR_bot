@@ -92,12 +92,71 @@
                 </div>
             </div>
 
-            <!-- Description Section -->
-            <div class="pt-6">
-                <h2 class="text-lg font-bold text-black mb-3">Vakansiya Tavsifi</h2>
-                <div class="bg-gray-50 rounded-xl p-5 border border-gray-200 text-gray-700 leading-relaxed text-sm whitespace-pre-line">
-                    {{ vacancy.description }}
+            <!-- New Structured Description Sections -->
+            <div class="pt-6 space-y-6">
+
+                <!-- Basics -->
+                <div class="bg-gray-50 rounded-xl p-5 border border-gray-200">
+                    <h3 class="text-xs font-extrabold text-red-600 uppercase tracking-wider mb-4">1. Asosiy Ma'lumotlar</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                        <div>
+                            <span class="block text-gray-500 mb-1">Kimga bo'ysunadi (Rahbar):</span>
+                            <span class="font-semibold text-gray-900">{{ vacancy.reports_to or 'Kiritilmagan' }}</span>
+                        </div>
+                        <div>
+                            <span class="block text-gray-500 mb-1">Ish vaqti:</span>
+                            <span class="font-semibold text-gray-900">{{ vacancy.work_hours or 'Kiritilmagan' }}</span>
+                        </div>
+                    </div>
                 </div>
+
+                <!-- Job Summary -->
+                <div>
+                    <h3 class="text-xs font-extrabold text-red-600 uppercase tracking-wider mb-2">2. Umumiy Tavsif</h3>
+                    <div class="bg-white rounded-xl p-5 border border-gray-200 text-gray-800 leading-relaxed text-sm whitespace-pre-line shadow-sm">
+                        {{ vacancy.job_summary or vacancy.description or 'Kiritilmagan' }}
+                    </div>
+                </div>
+
+                <!-- Duties -->
+                <div>
+                    <h3 class="text-xs font-extrabold text-red-600 uppercase tracking-wider mb-2">3. Vazifalar va Mas'uliyatlar</h3>
+                    <div class="bg-white rounded-xl p-5 border border-gray-200 text-gray-800 leading-relaxed text-sm whitespace-pre-line shadow-sm">
+                        {{ vacancy.duties_responsibilities or 'Kiritilmagan' }}
+                    </div>
+                </div>
+
+                <!-- Qualifications Grid -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                    <div>
+                        <h3 class="text-xs font-extrabold text-red-600 uppercase tracking-wider mb-2">4. Majburiy Talablar</h3>
+                        <div class="bg-white rounded-xl p-5 border border-gray-200 text-gray-800 leading-relaxed text-sm whitespace-pre-line shadow-sm h-full">
+                            {{ vacancy.required_qualifications or 'Kiritilmagan' }}
+                        </div>
+                    </div>
+                    <div>
+                        <h3 class="text-xs font-extrabold text-red-600 uppercase tracking-wider mb-2">5. Qo'shimcha Afzalliklar</h3>
+                        <div class="bg-white rounded-xl p-5 border border-gray-200 text-gray-800 leading-relaxed text-sm whitespace-pre-line shadow-sm h-full">
+                            {{ vacancy.preferred_qualifications or 'Kiritilmagan' }}
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Compensation & Benefits -->
+                <div class="bg-green-50/50 rounded-xl p-5 border border-green-200">
+                    <h3 class="text-xs font-extrabold text-green-700 uppercase tracking-wider mb-4">6. Maosh va Ijtimoiy Paket</h3>
+                    <div class="space-y-4 text-sm">
+                        <div>
+                            <span class="block text-gray-500 mb-1">Maosh oralig'i:</span>
+                            <span class="font-bold text-green-800 text-base">{{ vacancy.salary_range or 'Suhbat asosida' }}</span>
+                        </div>
+                        <div>
+                            <span class="block text-gray-500 mb-1">Imtiyozlar:</span>
+                            <span class="text-gray-800 whitespace-pre-line">{{ vacancy.benefits or 'Kiritilmagan' }}</span>
+                        </div>
+                    </div>
+                </div>
+
             </div>
         </section>
 
