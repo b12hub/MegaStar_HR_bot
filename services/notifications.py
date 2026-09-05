@@ -215,7 +215,7 @@ async def notify_candidate_status(
 ):
     safe_time = meeting_time or "Tez orada ma'lum qilinadi"
     is_http_link = bool(meeting_link_or_loc and meeting_link_or_loc.startswith("http"))
-
+    phone_number =os.getenv("HR_PHONE_NUMBER") or "+998946946135"
     if branch_name and branch_name.strip():
         display_branch = branch_name.strip()
     elif meeting_link_or_loc and not is_http_link:
@@ -232,6 +232,7 @@ async def notify_candidate_status(
             "Sizning arizangiz bizga ma'qul keldi. Biz siz bilan HR-suhbat o'tkazmoqchimiz!\n\n"
             f"🗓 <b>Vaqti:</b> {safe_time}\n"
             f"🔗 <b>Ulanish uchun havola:</b> <a href='{meeting_link_or_loc}'>Online Suhbat (Zoom/Meet)</a>\n\n"
+            f"Agar sizga telefon orqali bog'lanish qulayroq bo'lsa, iltimos, bu nomer orqali aloqaga chiqing: {phone_number}"
             "Suhbatda ko'rishguncha! 😊"
         ),
         "accept_2nd_meeting": (
