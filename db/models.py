@@ -3,7 +3,7 @@ from datetime import date, datetime, timezone
 from enum import Enum
 from typing import Any, Dict, Optional
 
-from sqlalchemy import Column, Enum as SAEnum, String
+from sqlalchemy import Column, Enum as SAEnum, String, BigInteger
 from sqlalchemy.types import JSON
 from sqlmodel import Field, SQLModel
 
@@ -68,7 +68,7 @@ class User(SQLModel, table=True):
     __tablename__ = "users"
 
     id: Optional[int] = Field(default=None, primary_key=True)
-    telegram_id: Optional[int] = Field(default=None, unique=True, index=True)
+    telegram_id: Optional[int] = Field(default=None, sa_column=Column(BigInteger, unique=True, index=True))
     telegram_username: Optional[str] = Field(default=None)
     full_name: Optional[str] = Field(default=None)
     phone_number: Optional[str] = Field(default=None)
