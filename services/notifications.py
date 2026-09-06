@@ -45,21 +45,23 @@ BRANCH_REGIONS ={
     "Outlet": "Toshkent",
 }
 
-# Updated Map using exact string keys from BRANCH_MAPS & BRANCH_REGIONS
+# Fully synchronized keys with BRANCH_MAPS and BRANCH_REGIONS
 FILIAL_PM_MAP = {
+    "Office Energy": os.getenv("Oybek_PM_CHAT_ID"),
+    "Izza - Showroom": os.getenv("Issa_showroom_PM_CHAT_ID"),
+    "Malika bozori, A3-do'kon": os.getenv("Malika_PM_CHAT_ID"),
     "O'rikzor bozori, 5-blok C15-do'kon": os.getenv("Orikzor_15_PM_CHAT_ID"),
     "O'rikzor bozori, 5-blok 60-do'kon": os.getenv("Orikzor_60_PM_CHAT_ID"),
     "Abusaxiy bozori, E111-do'kon": os.getenv("Abusahiy_PM_CHAT_ID"),
-    "Izza - Showroom": os.getenv("Issa_showroom_PM_CHAT_ID"),
-    "Malika bozori, A3-do'kon": os.getenv("Malika_PM_CHAT_ID"),
-    "Office Energy": os.getenv("Oybek_PM_CHAT_ID"),
+    "Shaxrisabz filiali": os.getenv("Shaxrisabz_PM_CHAT_ID"),
+    "Namangan filiali": os.getenv("Namangan_PM_CHAT_ID"),
+    "Buxoro filiali": os.getenv("Buxoro_PM_CHAT_ID"),
+    "Qarshi filiali": os.getenv("Qarshi_PM_CHAT_ID"),
     "Outlet": os.getenv("Outlet_PM_CHAT_ID"),
-    # Add other regional branches here as needed
 }
 
-
 def get_pm_chat_id(filial_name: str) -> str | None:
-    """Exact string match lookup to ensure branch routing never fails."""
+    """Safely retrieves the PM's Chat ID based on exact filial name."""
     if not filial_name:
         return None
     return FILIAL_PM_MAP.get(filial_name.strip())
@@ -67,42 +69,40 @@ def get_pm_chat_id(filial_name: str) -> str | None:
 
 async def notify_branch_pm_on_job_offer(bot: Bot, candidate, filial_name: str):
     """
-    Sends candidate details and CV to the Branch PM when approved for Job-Offer.
+    Called when HR approves a candidate to the 'Job-Offer' phase.
+    Routes candidate details and CV to the exact Filial PM.
     """
     pm_chat_id = get_pm_chat_id(filial_name)
 
     if not pm_chat_id:
-        logger.error(f"No PM Chat ID configured for filial: '{filial_name}'")
+        logger.warning(f"Notification skipped: No PM Chat ID for filial '{filial_name}'")
         return False
 
+    vacancy_title = getattr(candidate, 'position', 'Ko\'rsatilmagan')
     message_text = (
         f"🎉 <b>Yangi Nomzod Jamoaga Qo'shildi (Job Offer)!</b>\n\n"
         f"👤 <b>F.I.SH:</b> {candidate.full_name}\n"
         f"📞 <b>Telefon:</b> {candidate.phone_number}\n"
-        f"💼 <b>Lavozim:</b> {getattr(candidate, 'position', 'Ko\'rsatilmagan')}\n"
+        f"💼 <b>Lavozim:</b> {vacancy_title}\n"
         f"📍 <b>Filial:</b> {filial_name}\n\n"
         f"📄 Nomzodning rezyumesi (CV) ilova qilinmoqda."
     )
 
-    cv_sent = False
     cv_path = getattr(candidate, "cv_path", None) or getattr(candidate, "cv_file", None)
     cv_file_id = getattr(candidate, "cv_file_id", None)
+    cv_sent = False
 
     if cv_path and os.path.exists(cv_path):
         try:
             document = FSInputFile(cv_path, filename=f"CV_{candidate.full_name}.pdf")
-            await bot.send_document(
-                chat_id=int(pm_chat_id), document=document, caption=message_text, parse_mode="HTML"
-            )
+            await bot.send_document(chat_id=int(pm_chat_id), document=document, caption=message_text, parse_mode="HTML")
             cv_sent = True
         except Exception as e:
-            logger.error(f"Failed to send CV document from path: {e}")
+            logger.error(f"Failed to send CV path: {e}")
 
     elif cv_file_id:
         try:
-            await bot.send_document(
-                chat_id=int(pm_chat_id), document=cv_file_id, caption=message_text, parse_mode="HTML"
-            )
+            await bot.send_document(chat_id=int(pm_chat_id), document=cv_file_id, caption=message_text, parse_mode="HTML")
             cv_sent = True
         except Exception as e:
             logger.error(f"Failed to send CV file_id: {e}")
@@ -118,14 +118,15 @@ async def notify_branch_pm_on_job_offer(bot: Bot, candidate, filial_name: str):
 
 async def notify_director_on_third_stage(bot: Bot, candidate, vacancy_title: str, meeting_time: datetime):
     """
-    Sends candidate details directly to the Director when they reach the 3rd stage.
+    Called when a candidate reaches the 3rd stage meeting phase.
+    Routes notification directly to the Director.
     """
     director_chat_id = os.getenv("DIRECTOR_CHAT_ID")
     if not director_chat_id:
-        logger.error("DIRECTOR_CHAT_ID is not configured in the environment.")
+        logger.error("Notification failed: DIRECTOR_CHAT_ID is missing.")
         return False
 
-    time_str = meeting_time.strftime("%Y-%m-%d %H:%M") if meeting_time else "Tez orada aniqlanadi"
+    time_str = meeting_time.strftime("%d.%m.%Y %H:%M") if meeting_time else "Tez orada aniqlanadi"
 
     message_text = (
         f"🌟 <b>Rahbar bilan so'nggi suhbat bosqichi (3-bosqich)!</b>\n\n"
@@ -397,119 +398,3 @@ async def notify_candidate_job_offer(
     # No background_tasks here — this function is itself already dispatched as
     # a background task from dashboard.py, so it just sends directly.
     await send_tg_notification(telegram_id, message_text)
-
-async def send_candidate_offered_notification(bot: Bot, candidate, filial_name: str):
-    """Sends candidate offer notification along with CV document to the filial's PM."""
-    pm_chat_id = get_pm_chat_id(filial_name)
-
-    if not pm_chat_id:
-        logger.error(f"No PM Chat ID configured for filial: '{filial_name}'")
-        return False
-
-    message_text = (
-        f"🎉 <b>Yangi Nomzod Taklifi (Offer)!</b>\n\n"
-        f"👤 <b>F.I.SH:</b> {candidate.full_name}\n"
-        f"📞 <b>Telefon:</b> {candidate.phone_number}\n"
-        f"💼 <b>Lavozim:</b> {getattr(candidate, 'position', 'Ko\'rsatilmagan')}\n"
-        f"📍 <b>Filial:</b> {filial_name}\n\n"
-        f"📄 Nomzodning rezyumesi (CV) ilova qilindi."
-    )
-
-    cv_sent = False
-    cv_path = getattr(candidate, "cv_path", None) or getattr(candidate, "cv_file", None)
-    cv_file_id = getattr(candidate, "cv_file_id", None)
-
-    # 1. Send CV via server local file path
-    if cv_path and os.path.exists(cv_path):
-        try:
-            document = FSInputFile(cv_path, filename=f"CV_{candidate.full_name}.pdf")
-            await bot.send_document(
-                chat_id=int(pm_chat_id),
-                document=document,
-                caption=message_text,
-                parse_mode="HTML"
-            )
-            cv_sent = True
-        except Exception as e:
-            logger.error(f"Failed to send CV document from path: {e}")
-
-    # 2. Send CV via stored Telegram file_id
-    elif cv_file_id:
-        try:
-            await bot.send_document(
-                chat_id=int(pm_chat_id),
-                document=cv_file_id,
-                caption=message_text,
-                parse_mode="HTML"
-            )
-            cv_sent = True
-        except Exception as e:
-            logger.error(f"Failed to send CV file_id: {e}")
-
-    # 3. Fallback: Send text notification if CV file is missing
-    if not cv_sent:
-        await bot.send_message(
-            chat_id=int(pm_chat_id),
-            text=message_text + "\n\n⚠️ <i>Nomzodning CV fayli tizimda topilmadi.</i>",
-            parse_mode="HTML"
-        )
-
-    return True
-
-async def notify_director_new_hire(bot: Bot, candidate, filial_name: str):
-    """Sends candidate offer notification along with CV document to the filial's PM."""
-    pm_chat_id = get_pm_chat_id(filial_name)
-
-    if not pm_chat_id:
-        logger.error(f"No PM Chat ID configured for filial: '{filial_name}'")
-        return False
-
-    message_text = (
-        f"🎉 <b>Yangi Nomzod Taklifi (Offer)!</b>\n\n"
-        f"👤 <b>F.I.SH:</b> {candidate.full_name}\n"
-        f"📞 <b>Telefon:</b> {candidate.phone_number}\n"
-        f"💼 <b>Lavozim:</b> {getattr(candidate, 'position', 'Ko\'rsatilmagan')}\n"
-        f"📍 <b>Filial:</b> {filial_name}\n\n"
-        f"📄 Nomzodning rezyumesi (CV) ilova qilindi."
-    )
-
-    cv_sent = False
-    cv_path = getattr(candidate, "cv_path", None) or getattr(candidate, "cv_file", None)
-    cv_file_id = getattr(candidate, "cv_file_id", None)
-
-    # 1. Send CV via server local file path
-    if cv_path and os.path.exists(cv_path):
-        try:
-            document = FSInputFile(cv_path, filename=f"CV_{candidate.full_name}.pdf")
-            await bot.send_document(
-                chat_id=int(pm_chat_id),
-                document=document,
-                caption=message_text,
-                parse_mode="HTML"
-            )
-            cv_sent = True
-        except Exception as e:
-            logger.error(f"Failed to send CV document from path: {e}")
-
-    # 2. Send CV via stored Telegram file_id
-    elif cv_file_id:
-        try:
-            await bot.send_document(
-                chat_id=int(pm_chat_id),
-                document=cv_file_id,
-                caption=message_text,
-                parse_mode="HTML"
-            )
-            cv_sent = True
-        except Exception as e:
-            logger.error(f"Failed to send CV file_id: {e}")
-
-    # 3. Fallback: Send text notification if CV file is missing
-    if not cv_sent:
-        await bot.send_message(
-            chat_id=int(pm_chat_id),
-            text=message_text + "\n\n⚠️ <i>Nomzodning CV fayli tizimda topilmadi.</i>",
-            parse_mode="HTML"
-        )
-
-    return True

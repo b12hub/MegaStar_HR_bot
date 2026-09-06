@@ -36,12 +36,33 @@ from db.models import (
     Meeting,
 )
 
+from services.notifications import BRANCH_REGIONS, notify_hr_new_application
+from services.llm_evaluator import evaluate_candidate_answers
+from services.scoring import calculate_objective_score
+
 router = APIRouter(tags=["Candidate Portal"])
 templates = Jinja2Templates(directory="templates")
 logger = logging.getLogger(__name__)
 
-# Make sure the uploads directory exists.
 os.makedirs("uploads", exist_ok=True)
+
+
+async def process_async_candidate_evaluation(application_id: int, answers_text: str):
+    """Background worker to run LLM scoring without delaying user HTTP response."""
+    from db.database import engine
+    with Session(engine) as db:
+        app_rec = db.get(CandidateApplication, application_id)
+        if not app_rec:
+            return
+
+        ai_result = await evaluate_candidate_answers(answers_text)
+        ai_score_val = int(ai_result.get("ai_score", 0))
+        app_rec.ai_score = ai_score_val
+        app_rec.ai_reasoning = ai_result.get("feedback", "Tahlil tugallanmadi.")
+        app_rec.total_score = (app_rec.objective_score or 0) + ai_score_val
+
+        db.add(app_rec)
+        db.commit()
 
 
 class VacancyCascadeItem(BaseModel):
@@ -136,21 +157,23 @@ def get_cascade_data(db: Session = Depends(get_session)):
 
 @router.get("/apply/portal", response_class=HTMLResponse)
 def show_portal(request: Request, db: Session = Depends(get_session)):
-    """
-    Landing portal that lists active vacancies and provides filter data.
-    """
+    """Landing portal listing active vacancies with dynamically injected region data."""
     vacancies = db.exec(
         select(Vacancy)
         .where(Vacancy.is_active == True)
         .order_by(Vacancy.id)
     ).all()
 
+    # Map branches to build regions accurately
+    branches = db.exec(select(Branch)).all()
+    branch_map = {b.id: b.name for b in branches}
+
+    for v in vacancies:
+        branch_name = branch_map.get(v.branch_id, "")
+        v.region = BRANCH_REGIONS.get(branch_name, "Boshqa")
+
     regions = sorted({v.region for v in vacancies if getattr(v, "region", None)})
     departments = sorted({v.department for v in vacancies if getattr(v, "department", None)})
-    branch_list = [
-        {"id": b.id, "name": b.name}
-        for b in db.exec(select(Branch).order_by(Branch.id)).all()
-    ]
     categories = sorted({v.category for v in vacancies if getattr(v, "category", None)})
 
     return templates.TemplateResponse(
@@ -161,11 +184,10 @@ def show_portal(request: Request, db: Session = Depends(get_session)):
             "vacancies": vacancies,
             "regions": regions,
             "departments": departments,
-            "branches": branch_list,
+            "branches": [{"id": b.id, "name": b.name} for b in branches],
             "categories": categories,
         },
     )
-
 
 @router.get("/apply/vacancy/{vacancy_id}", response_class=HTMLResponse)
 async def show_vacancy_detail(
@@ -372,90 +394,66 @@ async def submit_candidate_application(
 
 @router.post("/apply/{vacancy_id}")
 async def submit_intake_form(
-        vacancy_id: int,
-        background_tasks: BackgroundTasks,
-        # Step 1: personal info
-        full_name: str = Form(...),
-        birth_date: Optional[str] = Form(None),
-        email: Optional[str] = Form(None),
-        address: Optional[str] = Form(None),
-        phone_number: str = Form(...),
-        telegram_id: Optional[str] = Form(None),
-        telegram_username: Optional[str] = Form(None),
-        extra_phone: Optional[str] = Form(None),
-        marital_status: Optional[str] = Form(None),
-        is_student: Optional[str] = Form(None),
-        education_field: Optional[str] = Form(None),
-        uz_lang_level: Optional[str] = Form(None),
-        rus_lang_level: Optional[str] = Form(None),
-        eng_lang_level: Optional[str] = Form(None),
-        computer_level: Optional[str] = Form(None),
-        work_experience_years: Optional[str] = Form(None),
-        crm_tools: Optional[str] = Form(None),
-        expected_salary: Optional[str] = Form(None),
-        has_car: Optional[str] = Form(None),
-        why_you: Optional[str] = Form(None),
-        is_convicted: Optional[str] = Form(None),
-        where_heard: Optional[str] = Form(None),
-        accept_offer: Optional[str] = Form(None),
-
-        # Step 2 & 3: dynamic experience & education (JSON strings from frontend)
-        experience_json: Optional[str] = Form(None),
-        education_json: Optional[str] = Form(None),
-
-        # Step 4: AI questions (may be empty)
-        hard_skill_a1: Optional[str] = Form(None),
-        hard_skill_a2: Optional[str] = Form(None),
-        soft_skill_a1: Optional[str] = Form(None),
-        soft_skill_a2: Optional[str] = Form(None),
-
-        # Step 5: files
-        photo_file: Optional[UploadFile] = File(None),
-        resume_file: Optional[UploadFile] = File(None),
-
-        db: Session = Depends(get_session),
+    vacancy_id: int,
+    background_tasks: BackgroundTasks,
+    full_name: str = Form(...),
+    phone_number: str = Form(...),
+    birth_date: Optional[str] = Form(None),
+    email: Optional[str] = Form(None),
+    address: Optional[str] = Form(None),
+    telegram_id: Optional[str] = Form(None),
+    telegram_username: Optional[str] = Form(None),
+    extra_phone: Optional[str] = Form(None),
+    marital_status: Optional[str] = Form(None),
+    is_student: Optional[str] = Form(None),
+    education_field: Optional[str] = Form(None),
+    uz_lang_level: Optional[str] = Form(None),
+    rus_lang_level: Optional[str] = Form(None),
+    eng_lang_level: Optional[str] = Form(None),
+    computer_level: Optional[str] = Form(None),
+    work_experience_years: Optional[str] = Form(None),
+    crm_tools: Optional[str] = Form(None),
+    expected_salary: Optional[str] = Form(None),
+    has_car: Optional[str] = Form(None),
+    why_you: Optional[str] = Form(None),
+    is_convicted: Optional[str] = Form(None),
+    where_heard: Optional[str] = Form(None),
+    accept_offer: Optional[str] = Form(None),
+    experience_json: Optional[str] = Form(None),
+    education_json: Optional[str] = Form(None),
+    hard_skill_a1: Optional[str] = Form(None),
+    hard_skill_a2: Optional[str] = Form(None),
+    soft_skill_a1: Optional[str] = Form(None),
+    soft_skill_a2: Optional[str] = Form(None),
+    photo_file: Optional[UploadFile] = File(None),
+    resume_file: Optional[UploadFile] = File(None),
+    db: Session = Depends(get_session),
 ):
-    """
-    Handles a large multipart application submission; stores files and extended_data JSON.
-    """
     vacancy = db.get(Vacancy, vacancy_id)
     if not vacancy:
         raise HTTPException(status_code=404, detail="Vacancy not found")
 
-    # 1) Save files (if present)
-    resume_path = None
-    photo_path = None
+    resume_path, photo_path = None, None
     if resume_file:
-        resume_safe = f"{uuid4().hex}_{resume_file.filename}"
-        resume_path = os.path.join("uploads", resume_safe)
+        resume_path = os.path.join("uploads", f"{uuid4().hex}_{resume_file.filename}")
         with open(resume_path, "wb") as buffer:
             shutil.copyfileobj(resume_file.file, buffer)
 
     if photo_file:
-        photo_safe = f"{uuid4().hex}_{photo_file.filename}"
-        photo_path = os.path.join("uploads", photo_safe)
+        photo_path = os.path.join("uploads", f"{uuid4().hex}_{photo_file.filename}")
         with open(photo_path, "wb") as buffer:
             shutil.copyfileobj(photo_file.file, buffer)
 
-    logger.info(f"Received telegram_id from form: {telegram_id}")
-    print(f"\n{'=' * 50}\n🚀 DEBUG - RECEIVED TELEGRAM ID: {telegram_id}\n{'=' * 50}\n")
+    normalized_telegram_id = None
+    if telegram_id not in (None, "", "null", "undefined"):
+        try:
+            normalized_telegram_id = int(telegram_id)
+        except ValueError:
+            pass
 
-    # 2) Find or create user (lookup by phone / telegram id)
     user = None
-    try:
-        normalized_telegram_id = (
-            int(telegram_id)
-            if telegram_id not in (None, "", "null", "undefined")
-            else None
-        )
-    except ValueError:
-        logger.warning(
-            f"Could not parse telegram_id={telegram_id!r} as int; storing as None"
-        )
-        normalized_telegram_id = None
-    if normalized_telegram_id is not None:
+    if normalized_telegram_id:
         user = db.exec(select(User).where(User.telegram_id == normalized_telegram_id)).first()
-
     if not user:
         user = db.exec(select(User).where(User.phone_number == phone_number)).first()
 
@@ -470,49 +468,10 @@ async def submit_intake_form(
         db.add(user)
         db.commit()
         db.refresh(user)
-    else:
-        updated = False
-        if full_name and user.full_name != full_name:
-            user.full_name = full_name
-            updated = True
-        if normalized_telegram_id is not None and user.telegram_id != normalized_telegram_id:
-            user.telegram_id = normalized_telegram_id
-            updated = True
-        if telegram_username and user.telegram_username != telegram_username:
-            user.telegram_username = telegram_username
-            updated = True
-        if updated:
-            db.add(user)
-            db.commit()
-            db.refresh(user)
 
-    # 3) Parse dynamic experience and education JSON arrays
-    experience_list = []
-    education_list = []
-    try:
-        if experience_json:
-            experience_list = json.loads(experience_json)
-    except (json.JSONDecodeError, TypeError):
-        experience_list = []
-    try:
-        if education_json:
-            education_list = json.loads(education_json)
-    except (json.JSONDecodeError, TypeError):
-        education_list = []
-
-    # 4) Build extended_data dict (dynamic arrays only — no ai_answers duplication)
-    extended_data: Dict[str, Any] = {
-        "experience": experience_list,
-        "education": education_list,
-    }
-
-    # 5) Helper to convert "Ha"/"Yo'q" strings to boolean
     def to_bool(val: Optional[str]) -> Optional[bool]:
-        if val is None:
-            return None
-        return val.lower() in ("ha", "true", "1", "yes", "on")
+        return val.lower() in ("ha", "true", "1", "yes", "on") if val else None
 
-    # 6) Create CandidateApplication record with all flat columns
     application = CandidateApplication(
         user_id=user.id,
         vacancy_id=vacancy_id,
@@ -536,25 +495,24 @@ async def submit_intake_form(
         is_convicted=to_bool(is_convicted),
         where_heard=where_heard,
         accept_offer=to_bool(accept_offer),
-        hard_skill_a1=hard_skill_a1 or None,
-        hard_skill_a2=hard_skill_a2 or None,
-        soft_skill_a1=soft_skill_a1 or None,
-        soft_skill_a2=soft_skill_a2 or None,
+        hard_skill_a1=hard_skill_a1,
+        hard_skill_a2=hard_skill_a2,
+        soft_skill_a1=soft_skill_a1,
+        soft_skill_a2=soft_skill_a2,
         resume_file_path=resume_path,
         photo_file_path=photo_path,
-        extended_data=extended_data,
         status=ApplicationStatus.PENDING,
         stage=InterviewStage.HR_VERIFICATION,
         pipeline_stage=PipelineStage.YANGI,
     )
 
-    from services.scoring import calculate_objective_score
-    from services.llm_evaluator import evaluate_candidate_answers
-    from services.notifications import notify_hr_new_application
+    # Compute immediate objective score synchronously
+    application.objective_score = calculate_objective_score(application)
+    db.add(application)
+    db.commit()
+    db.refresh(application)
 
-    objective_score = calculate_objective_score(application)
-    application.objective_score = objective_score
-
+    # Run heavy LLM scoring in BackgroundTasks for instant UI response
     answers_text = (
         f"Nima uchun aynan siz: {why_you or ''}\n"
         f"Hard skill A1: {hard_skill_a1 or ''}\n"
@@ -562,20 +520,9 @@ async def submit_intake_form(
         f"Soft skill A1: {soft_skill_a1 or ''}\n"
         f"Soft skill A2: {soft_skill_a2 or ''}"
     )
+    background_tasks.add_task(process_async_candidate_evaluation, application.id, answers_text)
 
-    ai_result = await evaluate_candidate_answers(answers_text)
-    ai_score_val = int(ai_result.get("ai_score", 0))
-    application.ai_score = ai_score_val
-    application.ai_reasoning = ai_result.get("feedback", "Tahlil tugallanmadi.")
-    application.total_score = (application.objective_score or 0) + ai_score_val
-
-    db.add(application)
-    db.commit()
-    db.refresh(application)
-
-    # Notify HR in Telegram now that the application is safely persisted.
-    # Runs as a background task so a slow/unavailable Telegram API never
-    # delays the response back to the candidate's Mini App.
+    # Send HR notification asynchronously
     background_tasks.add_task(
         notify_hr_new_application,
         full_name=full_name,
@@ -583,37 +530,13 @@ async def submit_intake_form(
         phone_number=phone_number,
     )
 
-    # 7) Persist WorkExperience records from parsed JSON
-    for exp in experience_list:
-        if isinstance(exp, dict) and exp.get("company_name"):
-            work_exp = WorkExperience(
-                application_id=application.id,
-                company_name=exp.get("company_name", ""),
-                position=exp.get("position", ""),
-                start_date=exp.get("start_date"),
-                end_date=exp.get("end_date"),
-                description=exp.get("manager_name", ""),
-            )
-            db.add(work_exp)
-
-    # 8) Persist Education records from parsed JSON
-    for edu in education_list:
-        if isinstance(edu, dict) and edu.get("institution"):
-            education_rec = Education(
-                application_id=application.id,
-                institution=edu.get("institution", ""),
-                degree=edu.get("degree"),
-                field_of_study=edu.get("field_of_study"),
-                graduation_year=edu.get("graduation_year"),
-            )
-            db.add(education_rec)
-
-    db.commit()
-
-    # Return success: Frontend should close WebApp
     return JSONResponse(
-        content={"success": True, "message": "Arizangiz muvaffaqiyatli yuborildi!", "application_id": application.id})
-
+        content={
+            "success": True,
+            "message": "Arizangiz muvaffaqiyatli yuborildi!",
+            "application_id": application.id,
+        }
+    )
 
 @router.get("/apply/status")
 def check_application_status(

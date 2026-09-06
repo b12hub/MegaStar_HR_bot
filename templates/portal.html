@@ -101,69 +101,79 @@
   </footer>
 
   <script>
-    document.addEventListener('DOMContentLoaded', () => {
-      const cards = document.querySelectorAll('.vacancy-card');
-      const filterRegion = document.getElementById('filterRegion');
-      const filterBranch = document.getElementById('filterBranch');
-      const filterTitle = document.getElementById('filterTitle');
+document.addEventListener('DOMContentLoaded', () => {
+    const cards = document.querySelectorAll('.vacancy-card');
+    const filterRegion = document.getElementById('filterRegion');
+    const filterBranch = document.getElementById('filterBranch');
+    const filterTitle = document.getElementById('filterTitle');
 
-      const activeRegions = new Set();
-      const activeBranches = [];
-      const activeTitles = new Set();
+    const activeRegions = new Set();
+    const activeTitles = new Set();
+    const branchMap = new Map(); // Maps Region -> Set of Branches
 
-      // 1. Parse active entities directly from DOM elements
-      cards.forEach(card => {
+    // 1. Parse active data directly from DOM elements
+    cards.forEach(card => {
         const region = card.dataset.region || 'Boshqa';
         const branch = card.dataset.branch || 'Boshqa';
         const title = card.dataset.title || 'Boshqa';
 
-        if (card.dataset.region) activeRegions.add(region);
-        if (card.dataset.title) activeTitles.add(title);
+        activeRegions.add(region);
+        activeTitles.add(title);
 
-        if (card.dataset.branch && !activeBranches.some(b => b.branch === branch)) {
-            activeBranches.push({ region, branch });
+        if (!branchMap.has(region)) {
+            branchMap.set(region, new Set());
         }
-      });
-
-      // 2. Populate filters based solely on extracted unique active datasets
-      activeRegions.forEach(r => filterRegion.add(new Option(r, r)));
-      activeTitles.forEach(t => filterTitle.add(new Option(t, t)));
-
-      // 3. Dynamic Branch Cascading
-      function populateBranches(selectedRegion) {
-          filterBranch.innerHTML = '<option value="">Hammasi (Filiallar)</option>';
-          activeBranches.forEach(b => {
-              if (!selectedRegion || b.region === selectedRegion) {
-                  filterBranch.add(new Option(b.branch, b.branch));
-              }
-          });
-      }
-
-      populateBranches(''); // Initial load: all active branches
-
-      // 4. Live Filtering Logic
-      function applyFilters() {
-          const regionVal = filterRegion.value;
-          const branchVal = filterBranch.value;
-          const titleVal = filterTitle.value;
-
-          cards.forEach(card => {
-              const matchRegion = !regionVal || card.dataset.region === regionVal;
-              const matchBranch = !branchVal || card.dataset.branch === branchVal;
-              const matchTitle = !titleVal || card.dataset.title === titleVal;
-
-              card.style.display = matchRegion && matchBranch && matchTitle ? '' : 'none';
-          });
-      }
-
-      // Event Listeners
-      filterRegion.addEventListener('change', (e) => {
-          populateBranches(e.target.value);
-          applyFilters();
-      });
-      filterBranch.addEventListener('change', applyFilters);
-      filterTitle.addEventListener('change', applyFilters);
+        branchMap.get(region).add(branch);
     });
+
+    // 2. Populate Region and Title filters based on active sets
+    Array.from(activeRegions).sort().forEach(r => filterRegion.add(new Option(r, r)));
+    Array.from(activeTitles).sort().forEach(t => filterTitle.add(new Option(t, t)));
+
+    // 3. Dynamic Branch Cascading
+    function populateBranches(selectedRegion) {
+        filterBranch.innerHTML = '<option value="">Hammasi (Filiallar)</option>';
+        let branchesToAdd = new Set();
+
+        if (selectedRegion && branchMap.has(selectedRegion)) {
+            branchesToAdd = branchMap.get(selectedRegion);
+        } else {
+            // Add all branches if no region is selected
+            branchMap.forEach(branches => {
+                branches.forEach(b => branchesToAdd.add(b));
+            });
+        }
+
+        Array.from(branchesToAdd).sort().forEach(b => filterBranch.add(new Option(b, b)));
+    }
+
+    populateBranches(''); // Initial load
+
+    // 4. Live DOM Filtering
+    function applyFilters() {
+        const rVal = filterRegion.value;
+        const bVal = filterBranch.value;
+        const tVal = filterTitle.value;
+
+        cards.forEach(card => {
+            const matchR = !rVal || card.dataset.region === rVal;
+            const matchB = !bVal || card.dataset.branch === bVal;
+            const matchT = !tVal || card.dataset.title === tVal;
+
+            card.style.display = matchR && matchB && matchT ? '' : 'none';
+        });
+    }
+
+    // Event Listeners
+    filterRegion.addEventListener('change', (e) => {
+        populateBranches(e.target.value);
+        // Reset branch selection if region changes
+        filterBranch.value = '';
+        applyFilters();
+    });
+    filterBranch.addEventListener('change', applyFilters);
+    filterTitle.addEventListener('change', applyFilters);
+});
   </script>
 </body>
 </html>
