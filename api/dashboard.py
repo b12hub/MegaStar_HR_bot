@@ -11,10 +11,11 @@ from services.zoom_service import create_zoom_meeting
 from services.notifications import (
     notify_candidate_status,
     notify_candidate_job_offer,
-    notify_director_new_hire,
+    notify_branch_pm_on_job_offer
 )
 from services.llm_evaluator import evaluate_candidate_answers, generate_vacancy_questions
 from services.google_sheets import sync_candidates_to_sheet
+from bot.main import bot
 
 
 class ScheduleRequest(BaseModel):
@@ -1005,22 +1006,18 @@ async def send_job_offer(
     else:
         logger.error(f"Telegram ID is missing for Candidate ID {candidate_id}; offer message not sent to candidate.")
 
-    # Director's chat id: prefer the branch record, fall back to a global env setting.
-    director_chat_id = getattr(branch, "manager_telegram_chat_id", None) if branch else None
-    if not director_chat_id:
-        from bot.config import settings
-        director_chat_id = getattr(settings, "DIRECTOR_CHAT_ID", None)
-
-    if director_chat_id:
+    # Replace the director notification block with branch PM notification:
+    filial_name = branch.name if branch else None
+    if filial_name:
         background_tasks.add_task(
-            notify_director_new_hire,
-            director_chat_id=director_chat_id,
-            candidate_name=candidate_name,
-            vacancy_title=vacancy_title,
-            start_datetime_str=start_str,
+            notify_branch_pm_on_job_offer,
+            bot=bot,
+            candidate=candidate,
+            filial_name=filial_name,
         )
     else:
-        logger.warning(f"No director chat id (branch or settings) for candidate {candidate_id}; director not notified.")
+        logger.warning(f"No branch associated with candidate {candidate_id}; PM not notified.")
+
 
     return RedirectResponse(
         url=f"/dashboard/candidates/{candidate_id}?offer_sent=1",
