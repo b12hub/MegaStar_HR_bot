@@ -13,7 +13,6 @@ from api.meetings import router as meetings_router
 from api.portal import router as hr_router
 from bot.main import bot, dp
 from db.database import init_db
-from seed import seed_vacancies_if_needed
 from services.notifications import send_meeting_reminders  # <-- Added Import
 
 load_dotenv()
@@ -36,7 +35,6 @@ def register_scheduler_jobs(scheduler_instance: AsyncIOScheduler) -> None:
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    seed_vacancies_if_needed()
     register_scheduler_jobs(scheduler)
     scheduler.start()
     try:
