@@ -36,44 +36,33 @@
       <p class="text-sm text-gray-500 mt-1">Vakansiyalarni ko'zdan kechiring va murojaat qiling</p>
     </header>
 
-    <!-- Filters -->
-    <div class="grid grid-cols-1 sm:grid-cols-4 gap-3 mb-6">
-      <select id="filterRegion" class="ms-input">
-        <option value="">Hammasi (Hududlar)</option>
-        {% for region in regions %}
-        <option value="{{ region }}">{{ region }}</option>
-        {% endfor %}
-      </select>
+      <!-- Filters -->
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-6">
+    <select id="filterRegion" class="ms-input">
+      <option value="">Hududlar (Hammasi)</option>
+      <!-- Populated via JS based on active vacancies -->
+    </select>
 
-      <select id="filterBranch" class="ms-input">
-        <option value="">Hammasi (Filiallar)</option>
-        {% for b in branches %}
-        <!-- Add the data-region attribute here -->
-        <option value="{{ b.id }}" data-region="{{ b.region }}">{{ b.name }}</option>
-        {% endfor %}
-      </select>
+    <select id="filterBranch" class="ms-input">
+      <option value="">Hammasi (Filiallar)</option>
+      <!-- Cascaded via JS -->
+    </select>
 
-      <select id="filterDepartment" class="ms-input">
-        <option value="">Hammasi (Bo'limlar)</option>
-        {% for d in departments %}
-        <option value="{{ d }}">{{ d }}</option>
-        {% endfor %}
-      </select>
-
-      <select id="filterCategory" class="ms-input">
-        <option value="">Hammasi (Lavozimlar)</option>
-        {% for c in categories %}
-        <option value="{{ c }}">{{ c }}</option>
-        {% endfor %}
-      </select>
-    </div> <!-- Added missing closing div for the filter grid -->
+    <select id="filterTitle" class="ms-input">
+      <option value="">Hammasi (Lavozimlar)</option>
+      <!-- Populated via JS based on active vacancy titles -->
+    </select>
+  </div>
 
     <!-- Vacancies list -->
 <section id="vacancyGrid" class="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
   {% for v in vacancies %}
   <!-- CHANGED HREF HERE -->
-  <a href="/apply/vacancy/{{ v.id }}" class="vacancy-card block bg-white p-5 rounded-xl border border-gray-200 hover:shadow-md transition" data-region="{{ v.region or '' }}" data-branch="{{ v.branch_id }}" data-department="{{ v.department or '' }}" data-category="{{ v.category or '' }}">
-    <div class="flex items-start justify-between">
+  <a href="/apply/vacancy/{{ v.id }}"
+   class="vacancy-card block bg-white p-5 rounded-xl border border-gray-200 hover:shadow-md transition"
+   data-region="{{ v.region }}"
+   data-branch="{{ v.branch_id }}"
+   data-title="{{ v.title }}">    <div class="flex items-start justify-between">
       <div>
         <h3 class="text-lg font-bold text-gray-900">{{ v.title }}</h3>
         <p class="text-xs text-gray-500 mt-1">{{ v.department }}</p>
@@ -112,90 +101,68 @@
   </footer>
 
   <script>
-    const filterRegion = document.getElementById('filterRegion');
-    const filterBranch = document.getElementById('filterBranch');
-    const filterDepartment = document.getElementById('filterDepartment');
-    const filterCategory = document.getElementById('filterCategory');
-    const cards = [...document.querySelectorAll('.vacancy-card')];
+    document.addEventListener('DOMContentLoaded', () => {
+      const cards = document.querySelectorAll('.vacancy-card');
+      const filterRegion = document.getElementById('filterRegion');
+      const filterBranch = document.getElementById('filterBranch');
+      const filterTitle = document.getElementById('filterTitle');
 
-    function applyFilters() {
-      const region = filterRegion.value;
-      const branch = filterBranch.value;
-      const department = filterDepartment.value;
-      const category = filterCategory.value;
+      const activeRegions = new Set();
+      const activeBranches = [];
+      const activeTitles = new Set();
 
-      cards.forEach((card) => {
-        const matchRegion = !region || card.dataset.region === region;
-        const matchBranch = !branch || String(card.dataset.branch) === String(branch);
-        const matchDepartment = !department || card.dataset.department === department;
-        const matchCategory = !category || card.dataset.category === category;
+      // 1. Parse active entities directly from DOM elements
+      cards.forEach(card => {
+        const region = card.dataset.region || 'Boshqa';
+        const branch = card.dataset.branch || 'Boshqa';
+        const title = card.dataset.title || 'Boshqa';
 
-        card.style.display = matchRegion && matchBranch && matchDepartment && matchCategory ? '' : 'none';
-      });
-    }
+        if (card.dataset.region) activeRegions.add(region);
+        if (card.dataset.title) activeTitles.add(title);
 
-    // 1. Cascading logic for the Branch dropdown
-    filterRegion.addEventListener('change', function() {
-      const selectedRegion = this.value;
-      const branchOptions = filterBranch.options;
-
-      for (let i = 0; i < branchOptions.length; i++) {
-        const option = branchOptions[i];
-
-        // Always show the default "Hammasi" option (which has no value)
-        if (!option.value) {
-          option.hidden = false;
-          continue;
-        }
-
-        // Show if no region is selected, OR if the branch's region matches
-        if (!selectedRegion || option.getAttribute('data-region') === selectedRegion) {
-          option.hidden = false;
-        } else {
-          option.hidden = true;
-        }
-      }
-
-      // If the currently selected branch is now hidden, reset the branch dropdown
-      if (filterBranch.selectedIndex > 0 && filterBranch.options[filterBranch.selectedIndex].hidden) {
-        filterBranch.value = '';
-      }
-
-      // Re-trigger the card filter
-      applyFilters();
-    });
-
-    // 2. Keep the existing card filtering logic for the other dropdowns
-    [filterBranch, filterDepartment, filterCategory].forEach((filter) => {
-      filter.addEventListener('change', applyFilters);
-    });
-
-    document.addEventListener('DOMContentLoaded', function () {
-      const tg = window.Telegram?.WebApp;
-      if (tg) {
-        tg.ready();
-        const tgUser = tg.initDataUnsafe?.user;
-        const tgId = tgUser?.id || sessionStorage.getItem('tg_id');
-        const tgUsername = tgUser?.username || sessionStorage.getItem('tg_username');
-
-        if (tgId) {
-          sessionStorage.setItem('tg_id', String(tgId));
-        }
-        if (tgUsername) {
-          sessionStorage.setItem('tg_username', String(tgUsername));
-        }
-      }
-
-      const hash = window.location.hash || '';
-      document.querySelectorAll('a[href]').forEach((link) => {
-        const href = link.getAttribute('href');
-        if (!href || href.startsWith('#') || href.startsWith('javascript:')) return;
-        const url = new URL(href, window.location.origin);
-        if (hash && !url.hash) {
-          url.hash = hash;
-          link.setAttribute('href', url.toString().replace(window.location.origin, ''));
+        if (card.dataset.branch && !activeBranches.some(b => b.branch === branch)) {
+            activeBranches.push({ region, branch });
         }
       });
+
+      // 2. Populate filters based solely on extracted unique active datasets
+      activeRegions.forEach(r => filterRegion.add(new Option(r, r)));
+      activeTitles.forEach(t => filterTitle.add(new Option(t, t)));
+
+      // 3. Dynamic Branch Cascading
+      function populateBranches(selectedRegion) {
+          filterBranch.innerHTML = '<option value="">Hammasi (Filiallar)</option>';
+          activeBranches.forEach(b => {
+              if (!selectedRegion || b.region === selectedRegion) {
+                  filterBranch.add(new Option(b.branch, b.branch));
+              }
+          });
+      }
+
+      populateBranches(''); // Initial load: all active branches
+
+      // 4. Live Filtering Logic
+      function applyFilters() {
+          const regionVal = filterRegion.value;
+          const branchVal = filterBranch.value;
+          const titleVal = filterTitle.value;
+
+          cards.forEach(card => {
+              const matchRegion = !regionVal || card.dataset.region === regionVal;
+              const matchBranch = !branchVal || card.dataset.branch === branchVal;
+              const matchTitle = !titleVal || card.dataset.title === titleVal;
+
+              card.style.display = matchRegion && matchBranch && matchTitle ? '' : 'none';
+          });
+      }
+
+      // Event Listeners
+      filterRegion.addEventListener('change', (e) => {
+          populateBranches(e.target.value);
+          applyFilters();
+      });
+      filterBranch.addEventListener('change', applyFilters);
+      filterTitle.addEventListener('change', applyFilters);
     });
   </script>
 </body>

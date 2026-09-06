@@ -79,9 +79,25 @@
                             <select id="branch_id" name="branch_id" required
                                     class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-red-500 focus:border-red-500 text-gray-900 text-sm outline-none transition bg-white shadow-xs">
                                 <option value="" disabled selected>Filialni tanlang</option>
-                                {% for branch in branches %}
-                                    <option value="{{ branch.id }}">{{ branch.name }} ({{ branch.address }})</option>
-                                {% endfor %}
+                                <optgroup label="Toshkent">
+                                    <option value="Office Energy">Office Energy</option>
+                                    <option value="Izza - Showroom">Izza - Showroom</option>
+                                    <option value="Malika bozori, A3-do'kon">Malika bozori, A3-do'kon</option>
+                                    <option value="O'rikzor bozori, 5-blok C15-do'kon">O'rikzor bozori, 5-blok C15-do'kon</option>
+                                    <option value="O'rikzor bozori, 5-blok 60-do'kon">O'rikzor bozori, 5-blok 60-do'kon</option>
+                                    <option value="Abusaxiy bozori, E111-do'kon">Abusaxiy bozori, E111-do'kon</option>
+                                    <option value="Outlet">Outlet</option>
+                                </optgroup>
+                                <optgroup label="Qashqadaryo">
+                                    <option value="Shaxrisabz filiali">Shaxrisabz filiali</option>
+                                    <option value="Qarshi filiali">Qarshi filiali</option>
+                                </optgroup>
+                                <optgroup label="Namangan">
+                                    <option value="Namangan filiali">Namangan filiali</option>
+                                </optgroup>
+                                <optgroup label="Buxoro">
+                                    <option value="Buxoro filiali">Buxoro filiali</option>
+                                </optgroup>
                             </select>
                         </div>
                         <div>

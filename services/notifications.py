@@ -30,30 +30,118 @@ BRANCH_MAPS = {
     "Outlet": "https://yandex.uz/maps/?ll=69.146093%2C41.271384&pt=69.146093%2C41.271384&z=17",
 }
 
-# Map normalized filial keys to PM Chat IDs from environment variables
+
+BRANCH_REGIONS ={
+    "Office Energy": "Toshkent",
+    "Izza - Showroom": "Toshkent",
+    "Malika bozori, A3-do'kon": "Toshkent",
+    "O'rikzor bozori, 5-blok C15-do'kon": "Toshkent",
+    "O'rikzor bozori, 5-blok 60-do'kon": "Toshkent",
+    "Abusaxiy bozori, E111-do'kon": "Toshkent",
+    "Shaxrisabz filiali": "Qashqadaryo",
+    "Namangan filiali": "Namangan",
+    "Buxoro filiali": "Buxoro",
+    "Qarshi filiali": "Qashqadaryo",
+    "Outlet": "Toshkent",
+}
+
+# Updated Map using exact string keys from BRANCH_MAPS & BRANCH_REGIONS
 FILIAL_PM_MAP = {
-    "orikzor_15": os.getenv("Orikzor_15_PM_CHAT_ID"),
-    "orikzor_60": os.getenv("Orikzor_60_PM_CHAT_ID"),
-    "abusahiy": os.getenv("Abusahiy_PM_CHAT_ID"),
-    "issa_showroom": os.getenv("Issa_showroom_PM_CHAT_ID"),
-    "malika": os.getenv("Malika_PM_CHAT_ID"),
-    "oybek": os.getenv("Oybek_PM_CHAT_ID"),
-    "outlet": os.getenv("Outlet_PM_CHAT_ID"),
+    "O'rikzor bozori, 5-blok C15-do'kon": os.getenv("Orikzor_15_PM_CHAT_ID"),
+    "O'rikzor bozori, 5-blok 60-do'kon": os.getenv("Orikzor_60_PM_CHAT_ID"),
+    "Abusaxiy bozori, E111-do'kon": os.getenv("Abusahiy_PM_CHAT_ID"),
+    "Izza - Showroom": os.getenv("Issa_showroom_PM_CHAT_ID"),
+    "Malika bozori, A3-do'kon": os.getenv("Malika_PM_CHAT_ID"),
+    "Office Energy": os.getenv("Oybek_PM_CHAT_ID"),
+    "Outlet": os.getenv("Outlet_PM_CHAT_ID"),
+    # Add other regional branches here as needed
 }
 
 
 def get_pm_chat_id(filial_name: str) -> str | None:
-    """Normalizes filial name (strips apostrophes, spaces, casing) to fetch the PM Chat ID."""
+    """Exact string match lookup to ensure branch routing never fails."""
     if not filial_name:
         return None
-    normalized_key = (
-        filial_name.lower()
-        .replace("'", "")
-        .replace("`", "")
-        .replace(" ", "_")
-        .strip()
+    return FILIAL_PM_MAP.get(filial_name.strip())
+
+
+async def notify_branch_pm_on_job_offer(bot: Bot, candidate, filial_name: str):
+    """
+    Sends candidate details and CV to the Branch PM when approved for Job-Offer.
+    """
+    pm_chat_id = get_pm_chat_id(filial_name)
+
+    if not pm_chat_id:
+        logger.error(f"No PM Chat ID configured for filial: '{filial_name}'")
+        return False
+
+    message_text = (
+        f"🎉 <b>Yangi Nomzod Jamoaga Qo'shildi (Job Offer)!</b>\n\n"
+        f"👤 <b>F.I.SH:</b> {candidate.full_name}\n"
+        f"📞 <b>Telefon:</b> {candidate.phone_number}\n"
+        f"💼 <b>Lavozim:</b> {getattr(candidate, 'position', 'Ko\'rsatilmagan')}\n"
+        f"📍 <b>Filial:</b> {filial_name}\n\n"
+        f"📄 Nomzodning rezyumesi (CV) ilova qilinmoqda."
     )
-    return FILIAL_PM_MAP.get(normalized_key)
+
+    cv_sent = False
+    cv_path = getattr(candidate, "cv_path", None) or getattr(candidate, "cv_file", None)
+    cv_file_id = getattr(candidate, "cv_file_id", None)
+
+    if cv_path and os.path.exists(cv_path):
+        try:
+            document = FSInputFile(cv_path, filename=f"CV_{candidate.full_name}.pdf")
+            await bot.send_document(
+                chat_id=int(pm_chat_id), document=document, caption=message_text, parse_mode="HTML"
+            )
+            cv_sent = True
+        except Exception as e:
+            logger.error(f"Failed to send CV document from path: {e}")
+
+    elif cv_file_id:
+        try:
+            await bot.send_document(
+                chat_id=int(pm_chat_id), document=cv_file_id, caption=message_text, parse_mode="HTML"
+            )
+            cv_sent = True
+        except Exception as e:
+            logger.error(f"Failed to send CV file_id: {e}")
+
+    if not cv_sent:
+        await bot.send_message(
+            chat_id=int(pm_chat_id),
+            text=message_text + "\n\n⚠️ <i>Nomzodning CV fayli tizimda topilmadi.</i>",
+            parse_mode="HTML"
+        )
+    return True
+
+
+async def notify_director_on_third_stage(bot: Bot, candidate, vacancy_title: str, meeting_time: datetime):
+    """
+    Sends candidate details directly to the Director when they reach the 3rd stage.
+    """
+    director_chat_id = os.getenv("DIRECTOR_CHAT_ID")
+    if not director_chat_id:
+        logger.error("DIRECTOR_CHAT_ID is not configured in the environment.")
+        return False
+
+    time_str = meeting_time.strftime("%Y-%m-%d %H:%M") if meeting_time else "Tez orada aniqlanadi"
+
+    message_text = (
+        f"🌟 <b>Rahbar bilan so'nggi suhbat bosqichi (3-bosqich)!</b>\n\n"
+        f"👤 <b>Nomzod:</b> {candidate.full_name}\n"
+        f"📞 <b>Telefon:</b> {candidate.phone_number}\n"
+        f"💼 <b>Vakansiya:</b> {vacancy_title}\n"
+        f"🗓 <b>Suhbat vaqti:</b> {time_str}\n\n"
+        f"Ushbu nomzod HR va Filial rahbari suhbatlaridan muvaffaqiyatli o'tdi."
+    )
+
+    try:
+        await bot.send_message(chat_id=int(director_chat_id), text=message_text, parse_mode="HTML")
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send 3rd stage notification to Director: {e}")
+        return False
 
 def get_branch_map_url(branch_name: Optional[str]) -> str:
     default_branch = "Office Energy"
