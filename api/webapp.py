@@ -153,8 +153,8 @@ def get_cascade_data(db: Session = Depends(get_session)):
 
     vacancies_list = list(vacancy_map.values())
     branches = db.exec(select(Branch)).all()
-    # Ensure regions map correctly from your constant
-    branches_list = [{"id": b.id, "name": b.name, "region": BRANCH_REGIONS.get(b.name, "Boshqa")} for b in branches if b.id is not None]
+    # Directly extract the actual region attribute from the Branch model
+    branches_list = [{"id": b.id, "name": b.name, "region": getattr(b, "region", "Boshqa")} for b in branches if b.id is not None]
 
     return CascadeDataResponse(vacancies=vacancies_list, branches=branches_list)
 
@@ -168,13 +168,14 @@ def show_portal(request: Request, db: Session = Depends(get_session)):
         .order_by(Vacancy.id)
     ).all()
 
-    # Map branches to build regions accurately
+    # Map branches to build regions accurately from the model attributes
     branches = db.exec(select(Branch)).all()
-    branch_map = {b.id: b.name for b in branches}
+    branch_map = {b.id: b for b in branches}
 
     for v in vacancies:
-        branch_name = branch_map.get(v.branch_id, "")
-        v.region = BRANCH_REGIONS.get(branch_name, "Boshqa")
+        branch = branch_map.get(v.branch_id)
+        v.region = getattr(branch, "region", "Boshqa") if branch else "Boshqa"
+        v.branch = branch.name if branch else str(v.branch_id)
 
     regions = sorted({v.region for v in vacancies if getattr(v, "region", None)})
     departments = sorted({v.department for v in vacancies if getattr(v, "department", None)})

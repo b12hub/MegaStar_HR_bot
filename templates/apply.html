@@ -62,6 +62,7 @@
                 <form id="applyForm" class="space-y-4" enctype="multipart/form-data">
                     <input type="hidden" name="telegram_id" id="telegram_id_input" value="">
                     <input type="hidden" name="telegram_username" value="">
+                    <input type="hidden" name="branch_id" value="{{ vacancy.branch_id }}">
 
                     <!-- ═══════════════════════════════════════════════════════ -->
                     <!-- STEP 1: Shaxsiy ma'lumotlar                             -->
@@ -798,15 +799,20 @@
 
             const formData = new FormData(this);
 
-            // ─── Force-inject Telegram ID & Username directly into FormData ───
+            // ─── Force-inject Telegram ID, Username & Integer Branch ID directly into FormData ───
             const tgUser = window.Telegram?.WebApp?.initDataUnsafe?.user;
             const finalTgId = tgUser?.id || sessionStorage.getItem('tg_id') || document.getElementById('telegram_id_input').value || '';
             const finalTgUsername = tgUser?.username || sessionStorage.getItem('tg_username') || '';
+            const finalBranchId = parseInt("{{ vacancy.branch_id }}") || 0;
 
             formData.set('telegram_id', finalTgId);
             formData.set('telegram_username', finalTgUsername);
+            formData.set('branch_id', finalBranchId);
 
-            console.log("🚀 DEBUG - Sending Telegram ID to backend:", formData.get('telegram_id'));
+            console.log("🚀 DEBUG - Sending payload to backend:", {
+                telegram_id: formData.get('telegram_id'),
+                branch_id: formData.get('branch_id')
+            });
 
             try {
                 const response = await fetch('/apply/{{ vacancy.id }}', {

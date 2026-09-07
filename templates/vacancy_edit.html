@@ -101,9 +101,13 @@
                                 <option value="" disabled {% if not vacancy.branch_id %}selected{% endif %}>Filialni tanlang</option>
 
                                 {% for branch in branches %}
-                                    <option value="{{ branch.id }}" {% if vacancy.branch_id == branch.id %}selected{% endif %}>
-                                        {{ branch.name }}{% if branch.region %} ({{ branch.region }}){% endif %}
-                                    </option>
+                                    {% if branch.id is defined %}
+                                        <option value="{{ branch.id }}" {% if vacancy.branch_id == branch.id %}selected{% endif %}>
+                                            {{ branch.name }}{% if branch.region and branch.region != branch.name %} ({{ branch.region }}){% endif %}
+                                        </option>
+                                    {% else %}
+                                        <option value="{{ branch }}" {% if vacancy.branch_id == branch %}selected{% endif %}>{{ branch }}</option>
+                                    {% endif %}
                                 {% endfor %}
 
                             </select>

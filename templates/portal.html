@@ -119,8 +119,15 @@
               filterTitle.add(new Option(title, title));
           });
 
-          // 3. Populate Regions (from branches payload)
-          const regions = [...new Set(data.branches.map(b => b.region))].sort();
+          // Identify Active Branches linked to current vacancies
+          const activeBranchIds = new Set();
+          data.vacancies.forEach(v => {
+              v.branch_ids.forEach(id => activeBranchIds.add(id));
+          });
+          const activeBranches = data.branches.filter(b => activeBranchIds.has(b.id));
+
+          // 3. Populate Regions EXCLUSIVELY from active branches
+          const regions = [...new Set(activeBranches.map(b => b.region))].sort();
           filterRegion.innerHTML = '<option value="">Hammasi (Hududlar)</option>';
           regions.forEach(region => {
               filterRegion.add(new Option(region, region));
@@ -130,14 +137,14 @@
           function populateBranches(selectedRegion) {
               filterBranch.innerHTML = '<option value="">Hammasi (Filiallar)</option>';
 
-              // Filter branches by region, or show all if no region is selected
+              // Filter ACTIVE branches by region, or show all ACTIVE if no region is selected
               const filteredBranches = selectedRegion
-                  ? data.branches.filter(b => b.region === selectedRegion)
-                  : data.branches;
+                  ? activeBranches.filter(b => b.region === selectedRegion)
+                  : activeBranches;
 
               filteredBranches.sort((a, b) => a.name.localeCompare(b.name));
 
-              // Use branch.id as the underlying value, and branch.name for the UI display
+              // Extract values from the name attribute for display
               filteredBranches.forEach(branch => {
                   filterBranch.add(new Option(branch.name, branch.id.toString()));
               });
