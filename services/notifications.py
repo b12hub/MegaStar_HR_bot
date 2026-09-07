@@ -103,7 +103,7 @@ async def notify_branch_pm_on_job_offer(bot: Bot, candidate, filial_name: str):
         f"📞 <b>Telefon:</b> {phone_number}\n"
         f"💼 <b>Lavozim:</b> {vacancy_title}\n"
         f"📍 <b>Filial:</b> {filial_name}\n\n"
-        f"📄 Nomzodning rezyumesi (CV) ilova qilinmoqda."
+        f"📄 Nomzodning rezyumesini (CV) ko'rish uchun faylni yuklang ."
     )
 
     cv_path = (
@@ -343,7 +343,7 @@ async def notify_candidate_status(
             "Sizning arizangiz bizga ma'qul keldi. Biz siz bilan HR-suhbat o'tkazmoqchimiz!\n\n"
             f"🗓 <b>Vaqti:</b> {safe_time}\n"
             f"🔗 <b>Ulanish uchun havola:</b> <a href='{meeting_link_or_loc}'>Online Suhbat (Zoom/Meet)</a>\n\n"
-            f"Agar sizga telefon orqali bog'lanish qulayroq bo'lsa, iltimos, bu nomer orqali aloqaga chiqing: {phone_number}"
+            f"Agar sizga telefon orqali bog'lanish qulayroq bo'lsa, iltimos, bu nomer orqali aloqaga chiqing:   {phone_number}\n\n"
             "Suhbatda ko'rishguncha! 😊"
         ),
         "accept_2nd_meeting": (
