@@ -102,9 +102,10 @@
 
                                 {% for branch in branches %}
                                     <option value="{{ branch.id }}" {% if vacancy.branch_id == branch.id %}selected{% endif %}>
-                                        {{ branch.name }}{% if getattr(branch, 'region', None) %} ({{ branch.region }}){% endif %}
+                                        {{ branch.name }}{% if branch.region %} ({{ branch.region }}){% endif %}
                                     </option>
                                 {% endfor %}
+
                             </select>
                         </div>
                         <div>

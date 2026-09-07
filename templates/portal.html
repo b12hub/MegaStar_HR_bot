@@ -101,79 +101,83 @@
   </footer>
 
   <script>
-document.addEventListener('DOMContentLoaded', () => {
-    const cards = document.querySelectorAll('.vacancy-card');
-    const filterRegion = document.getElementById('filterRegion');
-    const filterBranch = document.getElementById('filterBranch');
-    const filterTitle = document.getElementById('filterTitle');
+  document.addEventListener('DOMContentLoaded', async () => {
+      const cards = document.querySelectorAll('.vacancy-card');
+      const filterRegion = document.getElementById('filterRegion');
+      const filterBranch = document.getElementById('filterBranch');
+      const filterTitle = document.getElementById('filterTitle');
 
-    const activeRegions = new Set();
-    const activeTitles = new Set();
-    const branchMap = new Map(); // Maps Region -> Set of Branches
+      try {
+          // 1. Fetch the definitive mapping data from the backend API
+          const response = await fetch('/apply/data');
+          const data = await response.json();
 
-    // 1. Parse active data directly from DOM elements
-    cards.forEach(card => {
-        const region = card.dataset.region || 'Boshqa';
-        const branch = card.dataset.branch || 'Boshqa';
-        const title = card.dataset.title || 'Boshqa';
+          // 2. Populate Titles (from vacancies payload)
+          const titles = [...new Set(data.vacancies.map(v => v.title))].sort();
+          filterTitle.innerHTML = '<option value="">Hammasi (Vakansiyalar)</option>';
+          titles.forEach(title => {
+              filterTitle.add(new Option(title, title));
+          });
 
-        activeRegions.add(region);
-        activeTitles.add(title);
+          // 3. Populate Regions (from branches payload)
+          const regions = [...new Set(data.branches.map(b => b.region))].sort();
+          filterRegion.innerHTML = '<option value="">Hammasi (Hududlar)</option>';
+          regions.forEach(region => {
+              filterRegion.add(new Option(region, region));
+          });
 
-        if (!branchMap.has(region)) {
-            branchMap.set(region, new Set());
-        }
-        branchMap.get(region).add(branch);
-    });
+          // 4. Dynamic Branch Cascading based on API logic
+          function populateBranches(selectedRegion) {
+              filterBranch.innerHTML = '<option value="">Hammasi (Filiallar)</option>';
 
-    // 2. Populate Region and Title filters based on active sets
-    Array.from(activeRegions).sort().forEach(r => filterRegion.add(new Option(r, r)));
-    Array.from(activeTitles).sort().forEach(t => filterTitle.add(new Option(t, t)));
+              // Filter branches by region, or show all if no region is selected
+              const filteredBranches = selectedRegion
+                  ? data.branches.filter(b => b.region === selectedRegion)
+                  : data.branches;
 
-    // 3. Dynamic Branch Cascading
-    function populateBranches(selectedRegion) {
-        filterBranch.innerHTML = '<option value="">Hammasi (Filiallar)</option>';
-        let branchesToAdd = new Set();
+              filteredBranches.sort((a, b) => a.name.localeCompare(b.name));
 
-        if (selectedRegion && branchMap.has(selectedRegion)) {
-            branchesToAdd = branchMap.get(selectedRegion);
-        } else {
-            // Add all branches if no region is selected
-            branchMap.forEach(branches => {
-                branches.forEach(b => branchesToAdd.add(b));
-            });
-        }
+              // Use branch.id as the underlying value, and branch.name for the UI display
+              filteredBranches.forEach(branch => {
+                  filterBranch.add(new Option(branch.name, branch.id.toString()));
+              });
+          }
 
-        Array.from(branchesToAdd).sort().forEach(b => filterBranch.add(new Option(b, b)));
-    }
+          populateBranches(''); // Initial load
 
-    populateBranches(''); // Initial load
+          // 5. Live DOM Filtering
+          function applyFilters() {
+              const rVal = filterRegion.value;
+              const bVal = filterBranch.value; // This represents the branch_id from the API
+              const tVal = filterTitle.value;
 
-    // 4. Live DOM Filtering
-    function applyFilters() {
-        const rVal = filterRegion.value;
-        const bVal = filterBranch.value;
-        const tVal = filterTitle.value;
+              cards.forEach(card => {
+                  const matchR = !rVal || card.dataset.region === rVal;
+                  // Matches the data-branch attribute in your HTML which holds v.branch_id
+                  const matchB = !bVal || card.dataset.branch === bVal;
+                  const matchT = !tVal || card.dataset.title === tVal;
 
-        cards.forEach(card => {
-            const matchR = !rVal || card.dataset.region === rVal;
-            const matchB = !bVal || card.dataset.branch === bVal;
-            const matchT = !tVal || card.dataset.title === tVal;
+                  // Toggle visibility based on matches
+                  if (matchR && matchB && matchT) {
+                      card.style.display = '';
+                  } else {
+                      card.style.display = 'none';
+                  }
+              });
+          }
 
-            card.style.display = matchR && matchB && matchT ? '' : 'none';
-        });
-    }
+          // Event Listeners
+          filterRegion.addEventListener('change', (e) => {
+              populateBranches(e.target.value);
+              applyFilters();
+          });
+          filterBranch.addEventListener('change', applyFilters);
+          filterTitle.addEventListener('change', applyFilters);
 
-    // Event Listeners
-    filterRegion.addEventListener('change', (e) => {
-        populateBranches(e.target.value);
-        // Reset branch selection if region changes
-        filterBranch.value = '';
-        applyFilters();
-    });
-    filterBranch.addEventListener('change', applyFilters);
-    filterTitle.addEventListener('change', applyFilters);
-});
+      } catch (error) {
+          console.error("API xatosi: Ma'lumotlarni yuklashda muammo yuz berdi.", error);
+      }
+  });
   </script>
 </body>
 </html>

@@ -68,12 +68,14 @@ async def process_async_candidate_evaluation(application_id: int, answers_text: 
 class VacancyCascadeItem(BaseModel):
     id: int
     title: str
+    department: str
     branch_ids: List[int]
 
 
 class BranchItem(BaseModel):
     id: int
     name: str
+    region: str
 
 
 class CascadeDataResponse(BaseModel):
@@ -131,8 +133,7 @@ class SubmitResponse(BaseModel):
 @router.get("/apply/data", response_model=CascadeDataResponse)
 def get_cascade_data(db: Session = Depends(get_session)):
     """
-    Returns the necessary JSON payload to populate the frontend cascade dropdowns:
-    Active vacancies with their available branch_ids, and all branches.
+    Returns the necessary JSON payload to populate the frontend cascade dropdowns.
     """
     active_vacancies = db.exec(select(Vacancy).where(Vacancy.is_active == True)).all()
 
@@ -142,6 +143,8 @@ def get_cascade_data(db: Session = Depends(get_session)):
             vacancy_map[vac.title] = {
                 "id": vac.id,
                 "title": vac.title,
+                "department": vac.department or "Boshqa",
+                "category": getattr(vac, "category", None),
                 "branch_ids": [vac.branch_id],
             }
         else:
@@ -150,7 +153,8 @@ def get_cascade_data(db: Session = Depends(get_session)):
 
     vacancies_list = list(vacancy_map.values())
     branches = db.exec(select(Branch)).all()
-    branches_list = [{"id": b.id, "name": b.name} for b in branches if b.id is not None]
+    # Ensure regions map correctly from your constant
+    branches_list = [{"id": b.id, "name": b.name, "region": BRANCH_REGIONS.get(b.name, "Boshqa")} for b in branches if b.id is not None]
 
     return CascadeDataResponse(vacancies=vacancies_list, branches=branches_list)
 
@@ -398,6 +402,7 @@ async def submit_intake_form(
     background_tasks: BackgroundTasks,
     full_name: str = Form(...),
     phone_number: str = Form(...),
+    branch_id: int = Form(...),
     birth_date: Optional[str] = Form(None),
     email: Optional[str] = Form(None),
     address: Optional[str] = Form(None),
@@ -472,10 +477,11 @@ async def submit_intake_form(
     def to_bool(val: Optional[str]) -> Optional[bool]:
         return val.lower() in ("ha", "true", "1", "yes", "on") if val else None
 
+    # Instantiate Application using the parsed frontend branch_id
     application = CandidateApplication(
         user_id=user.id,
         vacancy_id=vacancy_id,
-        branch_id=vacancy.branch_id,
+        branch_id=branch_id, # Correctly pass the explicit branch here
         birth_date=birth_date,
         email=email,
         address=address,
