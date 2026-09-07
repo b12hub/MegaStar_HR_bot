@@ -78,23 +78,45 @@ async def notify_branch_pm_on_job_offer(bot: Bot, candidate, filial_name: str):
         logger.warning(f"Notification skipped: No PM Chat ID for filial '{filial_name}'")
         return False
 
-    vacancy_title = getattr(candidate, 'position', 'Ko\'rsatilmagan')
+    full_name = getattr(candidate, 'full_name', None)
+    phone_number = getattr(candidate, 'phone_number', None)
+    vacancy_title = getattr(candidate, 'position', None) or getattr(candidate, 'vacancy_title', None)
+
+    with Session(engine) as db:
+        if (not full_name or not phone_number) and hasattr(candidate, 'user_id'):
+            user = db.get(User, candidate.user_id)
+            if user:
+                full_name = full_name or user.full_name
+                phone_number = phone_number or user.phone_number
+        if not vacancy_title and hasattr(candidate, 'vacancy_id'):
+            vac = db.get(Vacancy, candidate.vacancy_id)
+            if vac:
+                vacancy_title = vac.title
+
+    full_name = full_name or "Noma'lum nomzod"
+    phone_number = phone_number or "-"
+    vacancy_title = vacancy_title or "Ko'rsatilmagan"
+
     message_text = (
         f"🎉 <b>Yangi Nomzod Jamoaga Qo'shildi (Job Offer)!</b>\n\n"
-        f"👤 <b>F.I.SH:</b> {candidate.full_name}\n"
-        f"📞 <b>Telefon:</b> {candidate.phone_number}\n"
+        f"👤 <b>F.I.SH:</b> {full_name}\n"
+        f"📞 <b>Telefon:</b> {phone_number}\n"
         f"💼 <b>Lavozim:</b> {vacancy_title}\n"
         f"📍 <b>Filial:</b> {filial_name}\n\n"
         f"📄 Nomzodning rezyumesi (CV) ilova qilinmoqda."
     )
 
-    cv_path = getattr(candidate, "cv_path", None) or getattr(candidate, "cv_file", None)
+    cv_path = (
+        getattr(candidate, "resume_file_path", None)
+        or getattr(candidate, "cv_path", None)
+        or getattr(candidate, "cv_file", None)
+    )
     cv_file_id = getattr(candidate, "cv_file_id", None)
     cv_sent = False
 
     if cv_path and os.path.exists(cv_path):
         try:
-            document = FSInputFile(cv_path, filename=f"CV_{candidate.full_name}.pdf")
+            document = FSInputFile(cv_path, filename=f"CV_{full_name}.pdf")
             await bot.send_document(chat_id=int(pm_chat_id), document=document, caption=message_text, parse_mode="HTML")
             cv_sent = True
         except Exception as e:

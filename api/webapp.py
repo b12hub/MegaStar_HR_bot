@@ -154,7 +154,14 @@ def get_cascade_data(db: Session = Depends(get_session)):
     vacancies_list = list(vacancy_map.values())
     branches = db.exec(select(Branch)).all()
     # Directly extract the actual region attribute from the Branch model
-    branches_list = [{"id": b.id, "name": b.name, "region": getattr(b, "region", "Boshqa")} for b in branches if b.id is not None]
+    branches_list = [
+        {
+            "id": b.id,
+            "name": b.name,
+            "region": getattr(b, "region", None) or BRANCH_REGIONS.get(b.name, "Toshkent")
+        }
+        for b in branches if b.id is not None
+    ]
 
     return CascadeDataResponse(vacancies=vacancies_list, branches=branches_list)
 

@@ -135,6 +135,7 @@
 
           // 4. Dynamic Branch Cascading based on API logic
           function populateBranches(selectedRegion) {
+              const currentSelectedBranch = filterBranch.value;
               filterBranch.innerHTML = '<option value="">Hammasi (Filiallar)</option>';
 
               // Filter ACTIVE branches by region, or show all ACTIVE if no region is selected
@@ -144,10 +145,15 @@
 
               filteredBranches.sort((a, b) => a.name.localeCompare(b.name));
 
-              // Extract values from the name attribute for display
               filteredBranches.forEach(branch => {
                   filterBranch.add(new Option(branch.name, branch.id.toString()));
               });
+
+              if (currentSelectedBranch && filteredBranches.some(b => b.id.toString() === currentSelectedBranch)) {
+                  filterBranch.value = currentSelectedBranch;
+              } else {
+                  filterBranch.value = '';
+              }
           }
 
           populateBranches(''); // Initial load
@@ -155,16 +161,14 @@
           // 5. Live DOM Filtering
           function applyFilters() {
               const rVal = filterRegion.value;
-              const bVal = filterBranch.value; // This represents the branch_id from the API
+              const bVal = filterBranch.value; // Represents branch_id from API
               const tVal = filterTitle.value;
 
               cards.forEach(card => {
                   const matchR = !rVal || card.dataset.region === rVal;
-                  // Matches the data-branch attribute in your HTML which holds v.branch_id
                   const matchB = !bVal || card.dataset.branch === bVal;
                   const matchT = !tVal || card.dataset.title === tVal;
 
-                  // Toggle visibility based on matches
                   if (matchR && matchB && matchT) {
                       card.style.display = '';
                   } else {

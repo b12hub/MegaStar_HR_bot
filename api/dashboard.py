@@ -432,7 +432,8 @@ async def create_vacancy_form(
         title: str = Form(...),
         department: str = Form(...),
         description: str = Form(...),
-        branch_id: int = Form(...),
+        branch: Optional[str] = Form(None),
+        branch_id: Optional[Union[int, str]] = Form(None),
         reports_to: str = Form(""),
         work_hours: str = Form("08:00 - 19:00"),
         duties_responsibilities: str = Form(""),
@@ -442,12 +443,28 @@ async def create_vacancy_form(
         benefits: str = Form(""),
         db: Session = Depends(get_session),
 ):
-    branch = db.get(Branch, branch_id)
-    if not branch:
+    from services.notifications import BRANCH_REGIONS
+    branch_name = (branch or (str(branch_id) if branch_id is not None else "")).strip()
+    if not branch_name:
         raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Branch with id {branch_id} not found",
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Filial nomi kiritilishi shart.",
         )
+
+    branch_obj = None
+    if branch_name.isdigit():
+        branch_obj = db.get(Branch, int(branch_name))
+        if branch_obj:
+            branch_name = branch_obj.name
+    if not branch_obj:
+        branch_obj = db.exec(select(Branch).where(Branch.name == branch_name)).first()
+    if not branch_obj:
+        branch_obj = Branch(name=branch_name, address=branch_name)
+        db.add(branch_obj)
+        db.commit()
+        db.refresh(branch_obj)
+
+    region_val = BRANCH_REGIONS.get(branch_name, "Toshkent")
 
     # Give the LLM the richer structured context too (without changing its
     # signature) — the extra sections just get appended to what it already
@@ -483,7 +500,9 @@ async def create_vacancy_form(
         title=title,
         department=department,
         description=description,
-        branch_id=branch_id,
+        branch=branch_name,
+        region=region_val,
+        branch_id=branch_obj.id,
         reports_to=reports_to.strip() or None,
         work_hours=work_hours.strip() or "08:00 - 19:00",
         duties_responsibilities=duties_responsibilities.strip() or None,
@@ -733,7 +752,8 @@ async def update_vacancy(
         title: str = Form(...),
         department: str = Form(...),
         description: str = Form(...),
-        branch_id: int = Form(...),
+        branch: Optional[str] = Form(None),
+        branch_id: Optional[Union[int, str]] = Form(None),
         is_active: bool = Form(False),
         generated_hard_skill_q1: str = Form(""),
         generated_hard_skill_q2: str = Form(""),
@@ -743,6 +763,9 @@ async def update_vacancy(
         regenerate_ai: bool = Form(False),
         db: Session = Depends(get_session),
 ):
+    from services.notifications import BRANCH_REGIONS
+    branch_name = (branch or (str(branch_id) if branch_id is not None else "")).strip()
+
     vacancy = db.get(Vacancy, vacancy_id)
     if not vacancy:
         raise HTTPException(
@@ -750,12 +773,22 @@ async def update_vacancy(
             detail=f"Vacancy with id {vacancy_id} not found",
         )
 
-    branch = db.get(Branch, branch_id)
-    if not branch:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail=f"Branch with id {branch_id} not found",
-        )
+    if branch_name:
+        branch_obj = None
+        if branch_name.isdigit():
+            branch_obj = db.get(Branch, int(branch_name))
+            if branch_obj:
+                branch_name = branch_obj.name
+        if not branch_obj:
+            branch_obj = db.exec(select(Branch).where(Branch.name == branch_name)).first()
+        if not branch_obj:
+            branch_obj = Branch(name=branch_name, address=branch_name)
+            db.add(branch_obj)
+            db.commit()
+            db.refresh(branch_obj)
+        vacancy.branch = branch_name
+        vacancy.region = BRANCH_REGIONS.get(branch_name, vacancy.region or "Toshkent")
+        vacancy.branch_id = branch_obj.id
 
     # If AI regeneration is requested, re-run the LLM evaluator.
     if regenerate_ai:
@@ -796,7 +829,6 @@ async def update_vacancy(
     vacancy.title = title
     vacancy.department = department
     vacancy.description = description
-    vacancy.branch_id = branch_id
     vacancy.is_active = is_active
 
     db.add(vacancy)
@@ -1006,8 +1038,8 @@ async def send_job_offer(
     else:
         logger.error(f"Telegram ID is missing for Candidate ID {candidate_id}; offer message not sent to candidate.")
 
-    # Replace the director notification block with branch PM notification:
-    filial_name = branch.name if branch else None
+    # Route notification to branch PM using exact filial name:
+    filial_name = (vacancy.branch if vacancy and vacancy.branch else None) or (branch.name if branch else None) or location
     if filial_name:
         background_tasks.add_task(
             notify_branch_pm_on_job_offer,
