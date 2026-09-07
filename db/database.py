@@ -24,6 +24,16 @@ def init_db() -> None:
     with engine.begin() as conn:
         try:
             if conn.dialect.name == "postgresql":
+                # Ensure 64-bit BIGINT is used for Telegram user & chat IDs (handles 10-digit IDs like 5375706608)
+                conn.execute(
+                    text("ALTER TABLE IF EXISTS users ALTER COLUMN telegram_id TYPE BIGINT;")
+                )
+                conn.execute(
+                    text('ALTER TABLE IF EXISTS "user" ALTER COLUMN telegram_id TYPE BIGINT;')
+                )
+                conn.execute(
+                    text("ALTER TABLE IF EXISTS branches ALTER COLUMN manager_telegram_chat_id TYPE BIGINT;")
+                )
                 conn.execute(
                     text(
                         "ALTER TABLE IF EXISTS vacancies ADD COLUMN IF NOT EXISTS llm_cost_usd DOUBLE PRECISION DEFAULT 0.0;"

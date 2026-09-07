@@ -12,9 +12,21 @@ def run_migration():
     with engine.begin() as conn:
         print(f"Connected to database engine: {conn.dialect.name}")
         if conn.dialect.name == "postgresql":
-            print("Applying ALTER TABLE vacancy ADD COLUMN IF NOT EXISTS llm_cost_usd DOUBLE PRECISION DEFAULT 0.0;")
+            print("Applying ALTER TABLE users / branches BIGINT migrations...")
             conn.execute(
-                text("ALTER TABLE vacancy ADD COLUMN IF NOT EXISTS llm_cost_usd DOUBLE PRECISION DEFAULT 0.0;")
+                text("ALTER TABLE IF EXISTS users ALTER COLUMN telegram_id TYPE BIGINT;")
+            )
+            conn.execute(
+                text('ALTER TABLE IF EXISTS "user" ALTER COLUMN telegram_id TYPE BIGINT;')
+            )
+            conn.execute(
+                text("ALTER TABLE IF EXISTS branches ALTER COLUMN manager_telegram_chat_id TYPE BIGINT;")
+            )
+            conn.execute(
+                text("ALTER TABLE IF EXISTS vacancies ADD COLUMN IF NOT EXISTS llm_cost_usd DOUBLE PRECISION DEFAULT 0.0;")
+            )
+            conn.execute(
+                text("ALTER TABLE IF EXISTS vacancy ADD COLUMN IF NOT EXISTS llm_cost_usd DOUBLE PRECISION DEFAULT 0.0;")
             )
         else:
             print(f"Skipping Postgres-specific ALTER on {conn.dialect.name} dialect.")

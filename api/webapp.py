@@ -467,7 +467,7 @@ async def submit_intake_form(
     user = None
     if normalized_telegram_id:
         user = db.exec(select(User).where(User.telegram_id == normalized_telegram_id)).first()
-    if not user:
+    if not user and phone_number:
         user = db.exec(select(User).where(User.phone_number == phone_number)).first()
 
     if not user:
@@ -481,6 +481,21 @@ async def submit_intake_form(
         db.add(user)
         db.commit()
         db.refresh(user)
+    else:
+        updated = False
+        if full_name and user.full_name != full_name:
+            user.full_name = full_name
+            updated = True
+        if normalized_telegram_id and user.telegram_id != normalized_telegram_id:
+            user.telegram_id = normalized_telegram_id
+            updated = True
+        if telegram_username and user.telegram_username != telegram_username:
+            user.telegram_username = telegram_username
+            updated = True
+        if updated:
+            db.add(user)
+            db.commit()
+            db.refresh(user)
 
     def to_bool(val: Optional[str]) -> Optional[bool]:
         return val.lower() in ("ha", "true", "1", "yes", "on") if val else None
