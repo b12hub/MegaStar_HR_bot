@@ -8,6 +8,7 @@ from bot.main import bot
 import os
 from pathlib import Path
 from aiogram import Bot
+from aiogram.exceptions import TelegramBadRequest, TelegramAPIError
 from aiogram.types import FSInputFile
 import httpx
 from fastapi import BackgroundTasks
@@ -28,6 +29,8 @@ BRANCH_MAPS = {
     "Buxoro filiali": "https://yandex.uz/maps/10330/bukhara/?ll=64.427441%2C39.765744&pt=64.427441%2C39.765744&z=17",
     "Qarshi filiali": "https://yandex.uz/maps/10331/karshi/?ll=65.794666%2C38.836639&pt=65.794666%2C38.836639&z=17",
     "Outlet": "https://yandex.uz/maps/?ll=69.146093%2C41.271384&pt=69.146093%2C41.271384&z=17",
+    "Oybek  Tech-Pro filiali": "https://yandex.uz/maps/-/CTdnuNlf",
+    "Ombor filiali": "https://yandex.uz/maps/?ll=69.146093%2C41.271384&pt=69.146093%2C41.271384&z=17"
 }
 
 
@@ -43,12 +46,14 @@ BRANCH_REGIONS ={
     "Buxoro filiali": "Buxoro",
     "Qarshi filiali": "Qashqadaryo",
     "Outlet": "Toshkent",
+    "Oybek  Tech-Pro filiali": "Toshkent",
+    "Ombor filiali": "Toshkent"
 }
 
 # Fully synchronized keys with BRANCH_MAPS and BRANCH_REGIONS
 FILIAL_PM_MAP = {
     "Office Energy": os.getenv("Oybek_PM_CHAT_ID"),
-    "Izza - Showroom": os.getenv("Issa_showroom_PM_CHAT_ID"),
+    "Izza - Showroom": os.getenv("Izza_showroom_PM_CHAT_ID"),
     "Malika bozori, A3-do'kon": os.getenv("Malika_PM_CHAT_ID"),
     "O'rikzor bozori, 5-blok C15-do'kon": os.getenv("Orikzor_15_PM_CHAT_ID"),
     "O'rikzor bozori, 5-blok 60-do'kon": os.getenv("Orikzor_60_PM_CHAT_ID"),
@@ -58,6 +63,8 @@ FILIAL_PM_MAP = {
     "Buxoro filiali": os.getenv("Buxoro_PM_CHAT_ID"),
     "Qarshi filiali": os.getenv("Qarshi_PM_CHAT_ID"),
     "Outlet": os.getenv("Outlet_PM_CHAT_ID"),
+    "Oybek  Tech-Pro filiali": os.getenv("Oybek_PM_CHAT_ID"),
+    "Ombor filiali": os.getenv("Ombor_PM_CHAT_ID")
 }
 
 def get_pm_chat_id(filial_name: str) -> str | None:
@@ -74,8 +81,14 @@ async def notify_branch_pm_on_job_offer(bot: Bot, candidate, filial_name: str):
     """
     pm_chat_id = get_pm_chat_id(filial_name)
 
-    if not pm_chat_id:
+    if not pm_chat_id or not str(pm_chat_id).strip():
         logger.warning(f"Notification skipped: No PM Chat ID for filial '{filial_name}'")
+        return False
+
+    try:
+        chat_id_int = int(pm_chat_id)
+    except (ValueError, TypeError):
+        logger.warning(f"Notification skipped: Invalid PM Chat ID '{pm_chat_id}' for filial '{filial_name}'")
         return False
 
     full_name = getattr(candidate, 'full_name', None)
@@ -117,24 +130,35 @@ async def notify_branch_pm_on_job_offer(bot: Bot, candidate, filial_name: str):
     if cv_path and os.path.exists(cv_path):
         try:
             document = FSInputFile(cv_path, filename=f"CV_{full_name}.pdf")
-            await bot.send_document(chat_id=int(pm_chat_id), document=document, caption=message_text, parse_mode="HTML")
+            await bot.send_document(chat_id=chat_id_int, document=document, caption=message_text, parse_mode="HTML")
             cv_sent = True
+        except (TelegramBadRequest, TelegramAPIError) as e:
+            logger.error(f"Telegram API error when sending CV document to PM (chat_id={pm_chat_id}): {e}")
         except Exception as e:
-            logger.error(f"Failed to send CV path: {e}")
+            logger.error(f"Failed to send CV document to PM (chat_id={pm_chat_id}): {e}")
 
     elif cv_file_id:
         try:
-            await bot.send_document(chat_id=int(pm_chat_id), document=cv_file_id, caption=message_text, parse_mode="HTML")
+            await bot.send_document(chat_id=chat_id_int, document=cv_file_id, caption=message_text, parse_mode="HTML")
             cv_sent = True
+        except (TelegramBadRequest, TelegramAPIError) as e:
+            logger.error(f"Telegram API error when sending CV file_id to PM (chat_id={pm_chat_id}): {e}")
         except Exception as e:
-            logger.error(f"Failed to send CV file_id: {e}")
+            logger.error(f"Failed to send CV file_id to PM (chat_id={pm_chat_id}): {e}")
 
     if not cv_sent:
-        await bot.send_message(
-            chat_id=int(pm_chat_id),
-            text=message_text + "\n\n⚠️ <i>Nomzodning CV fayli tizimda topilmadi.</i>",
-            parse_mode="HTML"
-        )
+        try:
+            await bot.send_message(
+                chat_id=chat_id_int,
+                text=message_text + "\n\n⚠️ <i>Nomzodning CV fayli tizimda topilmadi.</i>",
+                parse_mode="HTML"
+            )
+        except (TelegramBadRequest, TelegramAPIError) as e:
+            logger.error(f"Telegram API error when sending message to PM (chat_id={pm_chat_id}): {e}")
+            return False
+        except Exception as e:
+            logger.error(f"Failed to send Telegram message to PM (chat_id={pm_chat_id}): {e}")
+            return False
     return True
 
 
@@ -351,18 +375,16 @@ async def notify_candidate_status(
             "Siz birinchi suhbatdan muvaffaqiyatli o'tdingiz! Endi sizni ofisimizda yuzma-yuz HR suhbatiga taklif qilamiz.\n\n"
             f"🗓 <b>Vaqti:</b> {safe_time}\n"
             f"🏢 <b>Manzil:</b> {display_branch}\n"
-            f"⏰ <b>Ish vaqti:</b> {work_hours}\n"
             f"📍 <b>Xarita:</b> <a href='{map_url}'>Lokatsiya (Yandex Maps)</a>\n\n"
-            "Kechikmasdan kelishingizni so'raymiz!"
+            "Kechikmasdan kelishingizni so'raymiz!\n\n"
         ),
         "accept_boss_meeting": (
             "🌟 <b>So'nggi Bosqich!</b>\n\n"
             "Siz barcha bosqichlaridan muvaffaqiyatli o'tmoqdasiz. Endi sizni bevosita rahbarimiz bilan yuzma-yuz suhbat kutmoqda!\n\n"
             f"🗓 <b>Vaqti:</b> {safe_time}\n"
             f"🏢 <b>Manzil:</b> {display_branch}\n"
-            f"⏰ <b>Ish vaqti:</b> {work_hours}\n"
             f"📍 <b>Xarita:</b> <a href='{map_url}'>Lokatsiya (Yandex Maps)</a>\n\n"
-            "Tayyorgarlik ko'ring va ofisimizga tashrif buyuring. Omadingizni bersin! 🎯"
+            "Tayyorgarlik ko'ring va ofisimizga tashrif buyuring. Omadingizni bersin! 🎯\n\n"
         ),
         "cancel_initial": (
             "👋 <b>Salom!</b>\n\n"

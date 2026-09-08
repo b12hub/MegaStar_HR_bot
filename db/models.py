@@ -61,8 +61,13 @@ class Branch(SQLModel, table=True):
 
     id: Optional[int] = Field(default=None, primary_key=True)
     name: str
-    address: str
-    manager_telegram_chat_id: Optional[int] = Field(default=None, sa_column=Column(BigInteger, nullable=True))
+    region: str
+    location_url: str
+    manager_telegram_chat_id: Optional[int] = Field(
+        default=None,
+        sa_column=Column(BigInteger)
+    )
+    is_active: bool = Field(default=True)
 
 
 class User(SQLModel, table=True):

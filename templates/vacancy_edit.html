@@ -107,6 +107,7 @@
                                     <option value="O'rikzor bozori, 5-blok 60-do'kon" {% if vacancy.branch == "O'rikzor bozori, 5-blok 60-do'kon" %}selected{% endif %}>O'rikzor bozori, 5-blok 60-do'kon</option>
                                     <option value="Abusaxiy bozori, E111-do'kon" {% if vacancy.branch == "Abusaxiy bozori, E111-do'kon" %}selected{% endif %}>Abusaxiy bozori, E111-do'kon</option>
                                     <option value="Outlet" {% if vacancy.branch == 'Outlet' %}selected{% endif %}>Outlet</option>
+                                    <option value="Oybek  Tech-Pro filiali" {% if vacancy.branch == "Oybek  Tech-Pro filiali" %}selected{% endif %}>Oybek  Tech-Pro filiali</option>
                                 </optgroup>
                                 <optgroup label="Qashqadaryo">
                                     <option value="Shaxrisabz filiali" {% if vacancy.branch == 'Shaxrisabz filiali' %}selected{% endif %}>Shaxrisabz filiali</option>
@@ -149,7 +150,7 @@
                         <label for="work_hours" class="block text-xs font-bold uppercase tracking-wider text-gray-700 mb-2">
                             Ish vaqti
                         </label>
-                        <input type="text" id="work_hours" name="work_hours" value="{{ vacancy.work_hours or '' }}"
+                        <input type="text" id="work_hours" name="work_hours" value="{{ vacancy.work_hours if vacancy.work_hours else '' }}" placeholder="09:00 - 18:00"
                                class="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 text-gray-900 text-sm outline-none transition shadow-xs">
                     </div>
                 </fieldset>

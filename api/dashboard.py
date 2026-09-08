@@ -752,6 +752,7 @@ async def update_vacancy(
         title: str = Form(...),
         department: str = Form(...),
         description: str = Form(...),
+        work_hours: Optional[str] = Form(None),
         branch: Optional[str] = Form(None),
         branch_id: Optional[Union[int, str]] = Form(None),
         is_active: bool = Form(False),
@@ -829,6 +830,7 @@ async def update_vacancy(
     vacancy.title = title
     vacancy.department = department
     vacancy.description = description
+    vacancy.work_hours = work_hours
     vacancy.is_active = is_active
 
     db.add(vacancy)
