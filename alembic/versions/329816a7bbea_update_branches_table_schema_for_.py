@@ -20,21 +20,27 @@ depends_on: Union[str, Sequence[str], None] = None
 
 def upgrade() -> None:
     """Upgrade schema."""
-    # 1. Apply schema updates to the active branches table
-    op.add_column('branches', sa.Column('region', sqlmodel.sql.sqltypes.AutoString(), nullable=False))
-    op.add_column('branches', sa.Column('location_url', sqlmodel.sql.sqltypes.AutoString(), nullable=False))
-    op.add_column('branches', sa.Column('is_active', sa.Boolean(), nullable=False))
+    # 1. Apply schema updates to the active branches table with safe server defaults for existing rows
+    op.add_column('branches',
+                  sa.Column('region', sqlmodel.sql.sqltypes.AutoString(), nullable=False, server_default='Tashkent'))
+    op.add_column('branches',
+                  sa.Column('location_url', sqlmodel.sql.sqltypes.AutoString(), nullable=False, server_default=''))
+    op.add_column('branches', sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')))
+
     op.alter_column('branches', 'manager_telegram_chat_id',
-               existing_type=sa.BIGINT(),
-               type_=sa.Integer(),
-               existing_nullable=True)
+                    existing_type=sa.BIGINT(),
+                    type_=sa.Integer(),
+                    existing_nullable=True)
     op.drop_column('branches', 'address')
 
     # 2. Update candidate_applications stage enum
     op.alter_column('candidate_applications', 'stage',
-               existing_type=postgresql.ENUM('NEW', 'SCREENED_BY_BOT', 'INTERVIEW_SCHEDULED', 'OFFERED', 'REJECTED', 'HR_VERIFICATION', name='candidatestage'),
-               type_=sa.Enum('NEW', 'SCREENED_BY_BOT', 'INTERVIEW_SCHEDULED', 'OFFERED', 'REJECTED', 'HR_VERIFICATION', 'BRANCH_INTERVIEW', 'DIRECTOR_INTERVIEW', name='candidatestage', native_enum=False),
-               existing_nullable=False)
+                    existing_type=postgresql.ENUM('NEW', 'SCREENED_BY_BOT', 'INTERVIEW_SCHEDULED', 'OFFERED',
+                                                  'REJECTED', 'HR_VERIFICATION', name='candidatestage'),
+                    type_=sa.Enum('NEW', 'SCREENED_BY_BOT', 'INTERVIEW_SCHEDULED', 'OFFERED', 'REJECTED',
+                                  'HR_VERIFICATION', 'BRANCH_INTERVIEW', 'DIRECTOR_INTERVIEW', name='candidatestage',
+                                  native_enum=False),
+                    existing_nullable=False)
 
     # 3. Clean up unused columns and index on users table
     op.drop_index(op.f('ix_users_role'), table_name='users')
