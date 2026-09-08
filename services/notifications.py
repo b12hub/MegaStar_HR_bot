@@ -74,7 +74,7 @@ def get_pm_chat_id(filial_name: str) -> str | None:
     return FILIAL_PM_MAP.get(filial_name.strip())
 
 
-async def notify_branch_pm_on_job_offer(bot: Bot, candidate, filial_name: str):
+async def notify_branch_pm_on_job_offer(bot: Bot, candidate_id: int, filial_name: str):
     """
     Called when HR approves a candidate to the 'Job-Offer' phase.
     Routes candidate details and CV to the exact Filial PM.
@@ -91,33 +91,44 @@ async def notify_branch_pm_on_job_offer(bot: Bot, candidate, filial_name: str):
         logger.warning(f"Notification skipped: Invalid PM Chat ID '{pm_chat_id}' for filial '{filial_name}'")
         return False
 
-    full_name = getattr(candidate, 'full_name', None)
-    phone_number = getattr(candidate, 'phone_number', None)
-    vacancy_title = getattr(candidate, 'position', None) or getattr(candidate, 'vacancy_title', None)
-
+    # Open a fresh session to query the DB using the candidate_id
     with Session(engine) as db:
-        if (not full_name or not phone_number) and hasattr(candidate, 'user_id'):
-            user = db.get(User, candidate.user_id)
-            if user:
-                full_name = full_name or user.full_name
-                phone_number = phone_number or user.phone_number
-        if not vacancy_title and hasattr(candidate, 'vacancy_id'):
-            vac = db.get(Vacancy, candidate.vacancy_id)
-            if vac:
-                vacancy_title = vac.title
+        candidate = db.get(CandidateApplication, candidate_id)
 
-    full_name = full_name or "Noma'lum nomzod"
-    phone_number = phone_number or "-"
-    vacancy_title = vacancy_title or "Ko'rsatilmagan"
+        if not candidate:
+            logger.error(f"Notification failed: Candidate with ID {candidate_id} not found.")
+            return False
 
-    message_text = (
-        f"🎉 <b>Yangi Nomzod Jamoaga Qo'shildi (Job Offer)!</b>\n\n"
-        f"👤 <b>F.I.SH:</b> {full_name}\n"
-        f"📞 <b>Telefon:</b> {phone_number}\n"
-        f"💼 <b>Lavozim:</b> {vacancy_title}\n"
-        f"📍 <b>Filial:</b> {filial_name}\n\n"
-        f"📄 Nomzodning rezyumesini (CV) ko'rish uchun faylni yuklang ."
-    )
+        # Fetch related user and vacancy to populate the message
+        user = db.get(User, candidate.user_id)
+        vacancy = db.get(Vacancy, candidate.vacancy_id)
+
+        # Safely extract data from the freshly queried objects
+        full_name = getattr(candidate, 'full_name', None)
+        phone_number = getattr(candidate, 'phone_number', None)
+        vacancy_title = getattr(candidate, 'position', None) or getattr(candidate, 'vacancy_title', None)
+
+        if user:
+            full_name = full_name or user.full_name
+            phone_number = phone_number or user.phone_number
+
+        if vacancy and not vacancy_title:
+            vacancy_title = vacancy.title
+
+        # Set fallbacks
+        full_name = full_name or "Noma'lum nomzod"
+        phone_number = phone_number or "-"
+        vacancy_title = vacancy_title or "Ko'rsatilmagan"
+
+        # ... (The rest of your code for sending the CV remains exactly the same)
+        message_text = (
+            f"🎉 <b>Yangi Nomzod Jamoaga Qo'shildi (Job Offer)!</b>\n\n"
+            f"👤 <b>F.I.SH:</b> {full_name}\n"
+            f"📞 <b>Telefon:</b> {phone_number}\n"
+            f"💼 <b>Lavozim:</b> {vacancy_title}\n"
+            f"📍 <b>Filial:</b> {filial_name}\n\n"
+            f"📄 Nomzodning rezyumesini (CV) ko'rish uchun faylni yuklang ."
+        )
 
     cv_path = (
         getattr(candidate, "resume_file_path", None)
