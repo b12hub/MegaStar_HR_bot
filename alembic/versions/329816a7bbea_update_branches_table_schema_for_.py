@@ -27,9 +27,11 @@ def upgrade() -> None:
                   sa.Column('location_url', sqlmodel.sql.sqltypes.AutoString(), nullable=False, server_default=''))
     op.add_column('branches', sa.Column('is_active', sa.Boolean(), nullable=False, server_default=sa.text('true')))
 
+    # Ensure manager_telegram_chat_id is BIGINT to handle 10-digit Telegram IDs (matches Branch model BigInteger).
+    # The column may already be INTEGER or BIGINT depending on prior migrations; alter safely.
     op.alter_column('branches', 'manager_telegram_chat_id',
-                    existing_type=sa.BIGINT(),
-                    type_=sa.Integer(),
+                    existing_type=sa.Integer(),
+                    type_=sa.BIGINT(),
                     existing_nullable=True)
     op.drop_column('branches', 'address')
 
@@ -42,10 +44,14 @@ def upgrade() -> None:
                                   native_enum=False),
                     existing_nullable=False)
 
-    # 3. Clean up unused columns and index on users table
-    op.drop_index(op.f('ix_users_role'), table_name='users')
-    op.drop_column('users', 'is_active')
-    op.drop_column('users', 'updated_at')
+    # 3. Clean up unused columns and index on users table.
+    # Use IF EXISTS to guard against the index not existing in databases bootstrapped
+    # via create_all() (which doesn't generate the ix_users_role index) rather than Alembic.
+    op.execute('DROP INDEX IF EXISTS ix_users_role')
+    # Use IF EXISTS: these columns may not exist if the database was bootstrapped via
+    # create_all() / init_db() which skips migrations that would have created them.
+    op.execute('ALTER TABLE users DROP COLUMN IF EXISTS is_active')
+    op.execute('ALTER TABLE users DROP COLUMN IF EXISTS updated_at')
 
 
 def downgrade() -> None:
@@ -63,9 +69,10 @@ def downgrade() -> None:
 
     # 3. Revert branches table schema changes
     op.add_column('branches', sa.Column('address', sa.VARCHAR(), autoincrement=False, nullable=False))
+    # Revert BIGINT back to Integer (mirror of what upgrade() does: Integer -> BIGINT)
     op.alter_column('branches', 'manager_telegram_chat_id',
-               existing_type=sa.Integer(),
-               type_=sa.BIGINT(),
+               existing_type=sa.BIGINT(),
+               type_=sa.Integer(),
                existing_nullable=True)
     op.drop_column('branches', 'is_active')
     op.drop_column('branches', 'location_url')
