@@ -21,7 +21,7 @@ env/
 *.db
 uploads/
 tests/
-static/
+
 
 
 # IDE & OS meta
