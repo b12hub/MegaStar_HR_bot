@@ -50,28 +50,43 @@ BRANCH_REGIONS ={
     "Ombor filiali": "Toshkent"
 }
 
-# Fully synchronized keys with BRANCH_MAPS and BRANCH_REGIONS
-FILIAL_PM_MAP = {
-    "Office Energy": os.getenv("Office_Energy_PM_CHAT_ID"),
-    "Izza - Showroom": os.getenv("Izza_showroom_PM_CHAT_ID"),
-    "Malika bozori, A3-do'kon": os.getenv("Malika_PM_CHAT_ID"),
-    "O'rikzor bozori, 5-blok C15-do'kon": os.getenv("Orikzor_15_PM_CHAT_ID"),
-    "O'rikzor bozori, 5-blok 60-do'kon": os.getenv("Orikzor_60_PM_CHAT_ID"),
-    "Abusaxiy bozori, E111-do'kon": os.getenv("Abusahiy_PM_CHAT_ID"),
-    "Shaxrisabz filiali": os.getenv("Shaxrisabz_PM_CHAT_ID"),
-    "Namangan filiali": os.getenv("Namangan_PM_CHAT_ID"),
-    "Buxoro filiali": os.getenv("Buxoro_PM_CHAT_ID"),
-    "Qarshi filiali": os.getenv("Qarshi_PM_CHAT_ID"),
-    "Outlet": os.getenv("Outlet_PM_CHAT_ID"),
-    "Oybek  Tech-Pro filiali": os.getenv("Oybek_PM_CHAT_ID"),
-    "Ombor filiali": os.getenv("Ombor_PM_CHAT_ID")
+# Store the ENV KEYS instead of executing os.getenv immediately
+FILIAL_PM_ENV_KEYS = {
+    "Office Energy": "Office_Energy_PM_CHAT_ID",
+    "Izza - Showroom": "Izza_showroom_PM_CHAT_ID",
+    "Malika bozori, A3-do'kon": "Malika_PM_CHAT_ID",
+    "O'rikzor bozori, 5-blok C15-do'kon": "Orikzor_15_PM_CHAT_ID",
+    "O'rikzor bozori, 5-blok 60-do'kon": "Orikzor_60_PM_CHAT_ID",
+    "Abusaxiy bozori, E111-do'kon": "Abusahiy_PM_CHAT_ID",
+    "Shaxrisabz filiali": "Shaxrisabz_PM_CHAT_ID",
+    "Namangan filiali": "Namangan_PM_CHAT_ID",
+    "Buxoro filiali": "Buxoro_PM_CHAT_ID",
+    "Qarshi filiali": "Qarshi_PM_CHAT_ID",
+    "Outlet": "Outlet_PM_CHAT_ID",
+    "Oybek  Tech-Pro filiali": "Oybek_PM_CHAT_ID",
+    "Ombor filiali": "Ombor_PM_CHAT_ID"
 }
 
+
 def get_pm_chat_id(filial_name: str) -> str | None:
-    """Safely retrieves the PM's Chat ID based on exact filial name."""
+    """Safely retrieves the PM's Chat ID dynamically with case-insensitive matching."""
     if not filial_name:
         return None
-    return FILIAL_PM_MAP.get(filial_name.strip())
+
+    cleaned = filial_name.strip().lower()
+    target_env_key = None
+
+    # 1. Case-insensitive search
+    for branch, env_key in FILIAL_PM_ENV_KEYS.items():
+        if branch.lower() == cleaned or cleaned in branch.lower():
+            target_env_key = env_key
+            break
+
+    if not target_env_key:
+        return None
+
+    # 2. Dynamic lookup (fixes the .env import trap)
+    return os.getenv(target_env_key)
 
 
 async def notify_branch_pm_on_job_offer(bot: Bot, candidate_id: int, filial_name: str):
@@ -99,7 +114,6 @@ async def notify_branch_pm_on_job_offer(bot: Bot, candidate_id: int, filial_name
             logger.error(f"Notification failed: Candidate with ID {candidate_id} not found.")
             return False
 
-        # Fetch related user and vacancy to populate the message
         user = db.get(User, candidate.user_id)
         vacancy = db.get(Vacancy, candidate.vacancy_id)
 
@@ -130,12 +144,13 @@ async def notify_branch_pm_on_job_offer(bot: Bot, candidate_id: int, filial_name
             f"📄 Nomzodning rezyumesini (CV) ko'rish uchun faylni yuklang ."
         )
 
-    cv_path = (
-        getattr(candidate, "resume_file_path", None)
-        or getattr(candidate, "cv_path", None)
-        or getattr(candidate, "cv_file", None)
-    )
-    cv_file_id = getattr(candidate, "cv_file_id", None)
+        cv_path = (
+                getattr(candidate, "resume_file_path", None)
+                or getattr(candidate, "cv_path", None)
+                or getattr(candidate, "cv_file", None)
+        )
+        cv_file_id = getattr(candidate, "cv_file_id", None)
+
     cv_sent = False
 
     if cv_path and os.path.exists(cv_path):
