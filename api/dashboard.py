@@ -993,9 +993,14 @@ async def send_job_offer(
 
     user = db.get(User, candidate.user_id)
     vacancy = db.get(Vacancy, candidate.vacancy_id)
-    branch = db.get(Branch, candidate.branch_id) if candidate.branch_id else None
 
-    # Robust datetime parsing (same pattern used by /schedule)
+    # Resolve Branch from candidate or vacancy
+    branch = None
+    if candidate.branch_id:
+        branch = db.get(Branch, candidate.branch_id)
+    elif vacancy and vacancy.branch_id:
+        branch = db.get(Branch, vacancy.branch_id)
+
     try:
         parsed_start = datetime.fromisoformat(start_datetime.replace("Z", "+00:00"))
         if parsed_start.tzinfo is None:
@@ -1040,24 +1045,24 @@ async def send_job_offer(
     else:
         logger.error(f"Telegram ID is missing for Candidate ID {candidate_id}; offer message not sent to candidate.")
 
-    # Route notification to branch PM using exact filial name:
-    filial_name = (vacancy.branch if vacancy and vacancy.branch else None) or (branch.name if branch else None) or location
+    # Extract exact string for branch name
+    filial_name = branch.name if branch else None
+
     if filial_name:
+        # Pass candidate_id (scalar) instead of candidate (ORM object) to avoid detachment errors
         background_tasks.add_task(
             notify_branch_pm_on_job_offer,
             bot=bot,
-            candidate=candidate,
+            candidate_id=candidate.id,
             filial_name=filial_name,
         )
     else:
         logger.warning(f"No branch associated with candidate {candidate_id}; PM not notified.")
 
-
     return RedirectResponse(
         url=f"/dashboard/candidates/{candidate_id}?offer_sent=1",
         status_code=status.HTTP_303_SEE_OTHER,
     )
-
 
 @router.post("/candidates/{candidate_id}/reject")
 async def reject_candidate(

@@ -52,7 +52,7 @@ BRANCH_REGIONS ={
 
 # Fully synchronized keys with BRANCH_MAPS and BRANCH_REGIONS
 FILIAL_PM_MAP = {
-    "Office Energy": os.getenv("Oybek_PM_CHAT_ID"),
+    "Office Energy": os.getenv("Office_Energy_PM_CHAT_ID"),
     "Izza - Showroom": os.getenv("Izza_showroom_PM_CHAT_ID"),
     "Malika bozori, A3-do'kon": os.getenv("Malika_PM_CHAT_ID"),
     "O'rikzor bozori, 5-blok C15-do'kon": os.getenv("Orikzor_15_PM_CHAT_ID"),
