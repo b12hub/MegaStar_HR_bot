@@ -859,13 +859,13 @@ async def delete_vacancy(
             detail=f"Vacancy with id {vacancy_id} not found",
         )
 
-    # Clean up related candidate applications AND their dependent rows first
+    # ---> FIX: Added .scalars() so 'app' becomes a true CandidateApplication model instance <---
     applications = db.exec(
         select(CandidateApplication).where(CandidateApplication.vacancy_id == vacancy_id)
-    ).all()
+    ).scalars().all()
 
     for app in applications:
-        # Prevent secondary IntegrityErrors from Meeting and JobOffer foreign keys
+        # Now app.id will work correctly because app is a CandidateApplication model
         meetings = db.exec(select(Meeting).where(Meeting.candidate_id == app.id)).all()
         for m in meetings:
             db.delete(m)
@@ -874,15 +874,12 @@ async def delete_vacancy(
         for o in offers:
             db.delete(o)
 
-        # Safely delete the parent application
         db.delete(app)
 
-    # Finally, delete the Vacancy
     db.delete(vacancy)
     db.commit()
 
     return RedirectResponse(url="/dashboard/hr", status_code=status.HTTP_303_SEE_OTHER)
-
 
 @router.post("/candidates/{candidate_id}/schedule")
 async def schedule_candidate(
