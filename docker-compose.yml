@@ -10,7 +10,7 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER:-postgres} -d $${POSTGRES_DB:-megastar_hr}"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-postgres} -d ${POSTGRES_DB:-megastar_hr}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -19,13 +19,14 @@ services:
     build: .
     container_name: megastar_web
     restart: always
-    command: sh -c "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
+    command: uvicorn main:app --host 0.0.0.0 --port 8000
     ports:
       - "8000:8000"
     env_file:
       - .env
     volumes:
       - ./uploads:/app/uploads
+      - ./static:/app/static
     depends_on:
       db:
         condition: service_healthy
@@ -37,9 +38,13 @@ services:
     command: python -m bot.main
     env_file:
       - .env
+    volumes:
+      - ./uploads:/app/uploads
     depends_on:
       db:
         condition: service_healthy
+      web:
+        condition: service_started
 
 volumes:
   postgres_data:
