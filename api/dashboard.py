@@ -139,7 +139,7 @@ async def get_candidates_list(
     /dashboard/candidates/board.)"""
     applications = db.exec(
         select(CandidateApplication).order_by(CandidateApplication.created_at.desc())
-    ).all()
+    ).scalars().all()
 
     status_labels = {
         "PENDING": ("Kutilmoqda", "gray"),
