@@ -50,7 +50,6 @@ BRANCH_REGIONS ={
     "Ombor filiali": "Toshkent"
 }
 
-# Store the ENV KEYS instead of executing os.getenv immediately
 FILIAL_PM_ENV_KEYS = {
     "Office Energy": "Office_Energy_PM_CHAT_ID",
     "Izza - Showroom": "Izza_showroom_PM_CHAT_ID",
@@ -63,43 +62,36 @@ FILIAL_PM_ENV_KEYS = {
     "Buxoro filiali": "Buxoro_PM_CHAT_ID",
     "Qarshi filiali": "Qarshi_PM_CHAT_ID",
     "Outlet": "Outlet_PM_CHAT_ID",
-    "Oybek  Tech-Pro filiali": "Oybek_PM_CHAT_ID",
+    "Oybek Tech-Pro filiali": "Oybek_PM_CHAT_ID",
     "Ombor filiali": "Ombor_PM_CHAT_ID"
 }
-
 
 def get_pm_chat_id(filial_name: str) -> str | None:
     """Safely retrieves the PM's Chat ID dynamically with case-insensitive matching."""
     if not filial_name:
         return None
-
     cleaned = filial_name.strip().lower()
     target_env_key = None
-
-    # 1. Case-insensitive search
     for branch, env_key in FILIAL_PM_ENV_KEYS.items():
         if branch.lower() == cleaned or cleaned in branch.lower():
             target_env_key = env_key
             break
-
     if not target_env_key:
         return None
-
-    # 2. Dynamic lookup (fixes the .env import trap)
     return os.getenv(target_env_key)
-
 
 async def notify_branch_pm_on_job_offer(
     bot: Bot,
     candidate_id: int,
-    pm_chat_id: str,
     branch_name: str,
-    location_url: str
 ):
     """
     Called when HR approves a candidate to the 'Job-Offer' phase.
     Routes candidate details and CV to the exact Filial PM based on HR selection.
     """
+    pm_chat_id = get_pm_chat_id(branch_name)
+    location_url = get_branch_map_url(branch_name)
+
     if not pm_chat_id or not str(pm_chat_id).strip():
         logger.warning(f"Notification skipped: No PM Chat ID provided for filial '{branch_name}'")
         return False
@@ -154,7 +146,6 @@ async def notify_branch_pm_on_job_offer(
                 or getattr(candidate, "cv_file", None)
         )
         cv_file_id = getattr(candidate, "cv_file_id", None)
-
 
     cv_sent = False
 

@@ -989,7 +989,7 @@ async def send_job_offer(
         work_days: str = Form(...),
         work_hours: str = Form(...),
         start_datetime: str = Form(...),
-        location: str = Form(...), # This now holds the exact string name of the branch
+        location: str = Form(...),  # Plain string received from form
         db: Session = Depends(get_session),
 ):
     candidate = db.get(CandidateApplication, candidate_id)
@@ -998,9 +998,6 @@ async def send_job_offer(
 
     user = db.get(User, candidate.user_id)
     vacancy = db.get(Vacancy, candidate.vacancy_id)
-
-    # NEW: Resolve Branch strictly based on the HR's selection from the form
-    branch = db.execute(select(Branch).where(Branch.name == location)).scalar_first()
 
     try:
         parsed_start = datetime.fromisoformat(start_datetime.replace("Z", "+00:00"))
@@ -1047,18 +1044,14 @@ async def send_job_offer(
     else:
         logger.error(f"Telegram ID is missing for Candidate ID {candidate_id}; offer message not sent to candidate.")
 
-    # NEW: Notify the specific PM using data directly from the Branch model
-    if branch and branch.manager_telegram_chat_id:
+    # Trigger background notification to PM using the location string directly
+    if location:
         background_tasks.add_task(
             notify_branch_pm_on_job_offer,
             bot=bot,
             candidate_id=candidate.id,
-            pm_chat_id=branch.manager_telegram_chat_id,
-            branch_name=branch.name,
-            location_url=branch.location_url
+            branch_name=location,
         )
-    else:
-        logger.warning(f"No branch or PM chat ID associated with location '{location}'; PM not notified.")
 
     return RedirectResponse(
         url=f"/dashboard/candidates/{candidate_id}?offer_sent=1",

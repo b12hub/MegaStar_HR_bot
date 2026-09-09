@@ -447,14 +447,21 @@
                                 <input type="datetime-local" id="start_datetime" name="start_datetime" required
                                        class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                             </div>
+                            <!-- Replace the existing <select id="location" ...> block in your offerModal with this: -->
                             <div>
                                 <label for="location" class="block text-sm font-bold text-gray-700 mb-1">Ish joyi manzili (Filial)</label>
                                 <select id="location" name="location" required
                                         class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     <option value="" disabled selected>Tanlang...</option>
-                                    {% for b in branches %}
-                                        <option value="{{ b.name }}">{{ b.name }}</option>
-                                    {% endfor %}
+                                    <option value="Office Energy">Office Energy</option>
+                                    <option value="Izza - Showroom">Izza - Showroom</option>
+                                    <option value="Malika bozori, A3-do'kon">Malika bozori, A3-do'kon</option>
+                                    <option value="O'rikzor bozori, 5-blok C15-do'kon">O'rikzor bozori, 5-blok C15-do'kon</option>
+                                    <option value="O'rikzor bozori, 5-blok 60-do'kon">O'rikzor bozori, 5-blok 60-do'kon</option>
+                                    <option value="Abusaxiy bozori, E111-do'kon">Abusaxiy bozori, E111-do'kon</option>
+                                    <option value="Outlet">Outlet</option>
+                                    <option value="Oybek Tech-Pro filiali">Oybek Tech-Pro filiali</option>
+                                    <option value="Ombor filiali">Ombor filiali</option>
                                 </select>
                             </div>
                         </div>
