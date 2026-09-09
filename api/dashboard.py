@@ -337,8 +337,9 @@ async def get_hr_dashboard(
         request: Request,
         db: Session = Depends(get_session),
 ):
+    # FIX: Add .scalars() so 'vacancies' is a list of Vacancy model instances, not Rows
     statement = select(Vacancy).order_by(Vacancy.id)
-    vacancies = db.exec(statement).all()
+    vacancies = db.exec(statement).scalars().all()
 
     total_ai_cost = sum(v.llm_cost_usd or 0.0 for v in vacancies)
     active_vacancies_count = sum(
@@ -346,13 +347,14 @@ async def get_hr_dashboard(
     )
 
     candidate_counts = {}
-    applications = db.exec(select(CandidateApplication)).all()
+    # FIX: Add .scalars() here as well
+    applications = db.exec(select(CandidateApplication)).scalars().all()
     for application in applications:
         candidate_counts[application.vacancy_id] = (
                 candidate_counts.get(application.vacancy_id, 0) + 1
         )
 
-    # --- Overview KPIs for the new hr_dashboard.html "Overview" section ---
+    # --- Overview KPIs ---
     total_candidates = len(applications)
 
     pending_candidates = 0
@@ -365,9 +367,8 @@ async def get_hr_dashboard(
         if raw_status.upper() in {"PENDING", "INITIAL"}:
             pending_candidates += 1
 
-    # "Scheduled" = has a Zoom link or a meeting time set — same rule the
-    # /dashboard/meetings page uses, so this count matches what HR sees there.
-    all_meetings = db.exec(select(Meeting)).all()
+    # FIX: Add .scalars() here as well
+    all_meetings = db.exec(select(Meeting)).scalars().all()
     scheduled_meetings = sum(
         1 for m in all_meetings if m.meeting_link or m.meeting_time
     )
