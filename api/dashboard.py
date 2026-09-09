@@ -864,20 +864,35 @@ async def delete_vacancy(
     ).scalars().all()
 
     for app in applications:
-        # ---> FIX: Added .scalars() so 'm' is a true Meeting model instance <---
+        # 1. Delete related meetings
         meetings = db.exec(
             select(Meeting).where(Meeting.candidate_id == app.id)
         ).scalars().all()
         for m in meetings:
             db.delete(m)
 
-        # ---> FIX: Added .scalars() so 'o' is a true JobOffer model instance <---
+        # 2. Delete related job offers
         offers = db.exec(
             select(JobOffer).where(JobOffer.candidate_id == app.id)
         ).scalars().all()
         for o in offers:
             db.delete(o)
 
+        # 3. Delete related work experiences (uses application_id)
+        work_experiences = db.exec(
+            select(WorkExperience).where(WorkExperience.application_id == app.id)
+        ).scalars().all()
+        for we in work_experiences:
+            db.delete(we)
+
+        # 4. Delete related educations (uses application_id)
+        educations = db.exec(
+            select(Education).where(Education.application_id == app.id)
+        ).scalars().all()
+        for ed in educations:
+            db.delete(ed)
+
+        # 5. Now safely delete the application
         db.delete(app)
 
     db.delete(vacancy)
