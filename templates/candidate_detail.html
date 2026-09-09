@@ -452,20 +452,9 @@
                                 <select id="location" name="location" required
                                         class="w-full border border-gray-300 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500">
                                     <option value="" disabled selected>Tanlang...</option>
-                                    <option value="Office Energy">Office Energy</option>
-                                    <option value="Izza - Showroom">Izza - Showroom</option>
-                                    <option value="Malika bozori, A3-do'kon">Malika bozori, A3-do'kon</option>
-                                    <option value="O'rikzor bozori, 5-blok C15-do'kon">O'rikzor bozori, 5-blok C15-do'kon</option>
-                                    <option value="O'rikzor bozori, 5-blok 60-do'kon">O'rikzor bozori, 5-blok 60-do'kon</option>
-                                    <option value="Abusaxiy bozori, E111-do'kon">Abusaxiy bozori, E111-do'kon</option>
-                                    <option value="Outlet">Outlet</option>
-                                    <option value="Oybek  Tech-Pro filiali">Oybek  Tech-Pro filiali</option>
-                                    <option value="Ombor filiali">Ombor filiali</option>
-                                    <option value="Shaxrisabz filiali">Shaxrisabz filiali</option>
-                                    <option value="Namangan filiali">Namangan filiali</option>
-                                    <option value="Buxoro filiali">Buxoro filiali</option>
-                                    <option value="Qarshi filiali">Qarshi filiali</option>
-
+                                    {% for b in branches %}
+                                        <option value="{{ b.name }}">{{ b.name }}</option>
+                                    {% endfor %}
                                 </select>
                             </div>
                         </div>

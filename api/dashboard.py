@@ -5,6 +5,7 @@ from sqlmodel import Session, select
 from pydantic import BaseModel
 from datetime import datetime, timezone
 from typing import Optional, Union
+from sqlalchemy import select
 
 # Services
 from services.zoom_service import create_zoom_meeting
@@ -984,7 +985,7 @@ async def send_job_offer(
         work_days: str = Form(...),
         work_hours: str = Form(...),
         start_datetime: str = Form(...),
-        location: str = Form(...),
+        location: str = Form(...), # This now holds the exact string name of the branch
         db: Session = Depends(get_session),
 ):
     candidate = db.get(CandidateApplication, candidate_id)
@@ -994,12 +995,8 @@ async def send_job_offer(
     user = db.get(User, candidate.user_id)
     vacancy = db.get(Vacancy, candidate.vacancy_id)
 
-    # Resolve Branch from candidate or vacancy
-    branch = None
-    if candidate.branch_id:
-        branch = db.get(Branch, candidate.branch_id)
-    elif vacancy and vacancy.branch_id:
-        branch = db.get(Branch, vacancy.branch_id)
+    # NEW: Resolve Branch strictly based on the HR's selection from the form
+    branch = db.execute(select(Branch).where(Branch.name == location)).scalar_first()
 
     try:
         parsed_start = datetime.fromisoformat(start_datetime.replace("Z", "+00:00"))
@@ -1030,6 +1027,7 @@ async def send_job_offer(
     vacancy_title = vacancy.title if vacancy else "vakansiya"
     start_str = parsed_start.strftime("%Y-%m-%d %H:%M")
 
+    # Notify the Candidate
     if telegram_id:
         background_tasks.add_task(
             notify_candidate_job_offer,
@@ -1045,19 +1043,18 @@ async def send_job_offer(
     else:
         logger.error(f"Telegram ID is missing for Candidate ID {candidate_id}; offer message not sent to candidate.")
 
-    # Extract exact string for branch name
-    filial_name = branch.name if branch else None
-
-    if filial_name:
-        # Pass candidate_id (scalar) instead of candidate (ORM object) to avoid detachment errors
+    # NEW: Notify the specific PM using data directly from the Branch model
+    if branch and branch.manager_telegram_chat_id:
         background_tasks.add_task(
             notify_branch_pm_on_job_offer,
             bot=bot,
             candidate_id=candidate.id,
-            filial_name=filial_name,
+            pm_chat_id=branch.manager_telegram_chat_id,
+            branch_name=branch.name,
+            location_url=branch.location_url
         )
     else:
-        logger.warning(f"No branch associated with candidate {candidate_id}; PM not notified.")
+        logger.warning(f"No branch or PM chat ID associated with location '{location}'; PM not notified.")
 
     return RedirectResponse(
         url=f"/dashboard/candidates/{candidate_id}?offer_sent=1",

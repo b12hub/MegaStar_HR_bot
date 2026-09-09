@@ -89,21 +89,25 @@ def get_pm_chat_id(filial_name: str) -> str | None:
     return os.getenv(target_env_key)
 
 
-async def notify_branch_pm_on_job_offer(bot: Bot, candidate_id: int, filial_name: str):
+async def notify_branch_pm_on_job_offer(
+    bot: Bot,
+    candidate_id: int,
+    pm_chat_id: str,
+    branch_name: str,
+    location_url: str
+):
     """
     Called when HR approves a candidate to the 'Job-Offer' phase.
-    Routes candidate details and CV to the exact Filial PM.
+    Routes candidate details and CV to the exact Filial PM based on HR selection.
     """
-    pm_chat_id = get_pm_chat_id(filial_name)
-
     if not pm_chat_id or not str(pm_chat_id).strip():
-        logger.warning(f"Notification skipped: No PM Chat ID for filial '{filial_name}'")
+        logger.warning(f"Notification skipped: No PM Chat ID provided for filial '{branch_name}'")
         return False
 
     try:
         chat_id_int = int(pm_chat_id)
     except (ValueError, TypeError):
-        logger.warning(f"Notification skipped: Invalid PM Chat ID '{pm_chat_id}' for filial '{filial_name}'")
+        logger.warning(f"Notification skipped: Invalid PM Chat ID '{pm_chat_id}' for filial '{branch_name}'")
         return False
 
     # Open a fresh session to query the DB using the candidate_id
@@ -133,15 +137,15 @@ async def notify_branch_pm_on_job_offer(bot: Bot, candidate_id: int, filial_name
         full_name = full_name or "Noma'lum nomzod"
         phone_number = phone_number or "-"
         vacancy_title = vacancy_title or "Ko'rsatilmagan"
+        location_link = f"<a href='{location_url}'>{branch_name}</a>" if location_url else branch_name
 
-        # ... (The rest of your code for sending the CV remains exactly the same)
         message_text = (
             f"🎉 <b>Yangi Nomzod Jamoaga Qo'shildi (Job Offer)!</b>\n\n"
             f"👤 <b>F.I.SH:</b> {full_name}\n"
             f"📞 <b>Telefon:</b> {phone_number}\n"
             f"💼 <b>Lavozim:</b> {vacancy_title}\n"
-            f"📍 <b>Filial:</b> {filial_name}\n\n"
-            f"📄 Nomzodning rezyumesini (CV) ko'rish uchun faylni yuklang ."
+            f"📍 <b>Filial:</b> {location_link}\n\n"
+            f"📄 Nomzodning rezyumesini (CV) ko'rish uchun faylni yuklang."
         )
 
         cv_path = (
@@ -150,6 +154,7 @@ async def notify_branch_pm_on_job_offer(bot: Bot, candidate_id: int, filial_name
                 or getattr(candidate, "cv_file", None)
         )
         cv_file_id = getattr(candidate, "cv_file_id", None)
+
 
     cv_sent = False
 
@@ -292,7 +297,7 @@ async def send_meeting_reminders():
             select(Meeting)
             .where(Meeting.meeting_time > now)
             .where(Meeting.meeting_time <= twenty_four_hours_from_now)
-            .where(Meeting.reminders_sent == 0)
+            .where(Meeting.reminders_sent == False)
         ).all()
 
         for meeting in upcoming_meetings:
