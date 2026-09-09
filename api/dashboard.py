@@ -41,7 +41,7 @@ from db.models import (
     User,
     Vacancy,
     Meeting,
-    PipelineStage,
+    PipelineStage, WorkExperience, Education,
 )
 
 import logging
