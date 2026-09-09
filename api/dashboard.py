@@ -945,6 +945,7 @@ async def schedule_candidate(
             )
 
 
+
     elif payload.stage == "director_offline":
         candidate.pipeline_stage = PipelineStage.DIRECTOR_OFFLINE
         if telegram_id:
@@ -957,7 +958,8 @@ async def schedule_candidate(
                 branch_name=getattr(payload, "branch_name", None)
             )
 
-        vacancy_title = candidate.vacancy.title if candidate.vacancy else "Mutaxassis"
+        vacancy = db.get(Vacancy, candidate.vacancy_id) if candidate.vacancy_id else None
+        vacancy_title = vacancy.title if vacancy else "Mutaxassis"
         background_tasks.add_task(
             notify_director_on_third_stage,
             bot=bot,
