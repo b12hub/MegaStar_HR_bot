@@ -859,18 +859,22 @@ async def delete_vacancy(
             detail=f"Vacancy with id {vacancy_id} not found",
         )
 
-    # ---> FIX: Added .scalars() so 'app' becomes a true CandidateApplication model instance <---
     applications = db.exec(
         select(CandidateApplication).where(CandidateApplication.vacancy_id == vacancy_id)
     ).scalars().all()
 
     for app in applications:
-        # Now app.id will work correctly because app is a CandidateApplication model
-        meetings = db.exec(select(Meeting).where(Meeting.candidate_id == app.id)).all()
+        # ---> FIX: Added .scalars() so 'm' is a true Meeting model instance <---
+        meetings = db.exec(
+            select(Meeting).where(Meeting.candidate_id == app.id)
+        ).scalars().all()
         for m in meetings:
             db.delete(m)
 
-        offers = db.exec(select(JobOffer).where(JobOffer.candidate_id == app.id)).all()
+        # ---> FIX: Added .scalars() so 'o' is a true JobOffer model instance <---
+        offers = db.exec(
+            select(JobOffer).where(JobOffer.candidate_id == app.id)
+        ).scalars().all()
         for o in offers:
             db.delete(o)
 
