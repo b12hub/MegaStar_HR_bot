@@ -19,7 +19,6 @@ env/
 *.sqlite
 *.sqlite3
 *.db
-uploads/
 tests/
 
 
