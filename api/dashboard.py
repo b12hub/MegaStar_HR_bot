@@ -611,7 +611,6 @@ async def get_vacancy_candidates(
         },
     )
 
-
 @router.get("/candidates/{candidate_id}", response_class=HTMLResponse)
 async def get_candidate_detail(
         candidate_id: int,
@@ -627,6 +626,9 @@ async def get_candidate_detail(
     user = db.get(User, application.user_id)
     extended_data = application.extended_data or {}
 
+    # QUERY ACTIVE BRANCHES FROM THE DATABASE
+    branches = db.exec(select(Branch).where(Branch.is_active == True).order_by(Branch.name)).all()
+
     return templates.TemplateResponse(
         request=request,
         name="candidate_detail.html",
@@ -636,6 +638,7 @@ async def get_candidate_detail(
             "user": user,
             "vacancy": vacancy,
             "extended_data": extended_data,
+            "branches": branches,  # PASS BRANCHES TO THE TEMPLATE HERE
         },
     )
 
