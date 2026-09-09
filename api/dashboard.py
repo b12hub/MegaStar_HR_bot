@@ -77,7 +77,7 @@ async def get_dashboard_notifications(db: Session = Depends(get_session)):
         select(CandidateApplication)
         .order_by(CandidateApplication.created_at.desc())
         .limit(5)
-    ).all()
+    ).scalars().all()
 
     # 2. 5 Upcoming Meetings
     now = datetime.now(timezone.utc)
@@ -86,7 +86,7 @@ async def get_dashboard_notifications(db: Session = Depends(get_session)):
         .where(Meeting.meeting_time > now)
         .order_by(Meeting.meeting_time.asc())
         .limit(5)
-    ).all()
+    ).scalars().all()
 
     notifications = []
 
@@ -204,7 +204,7 @@ async def get_candidate_board(
     if vacancy_id is not None:
         statement = statement.where(CandidateApplication.vacancy_id == vacancy_id)
 
-    applications = db.exec(statement.order_by(CandidateApplication.created_at.desc())).all()
+    applications = db.exec(statement.order_by(CandidateApplication.created_at.desc())).scalars().all()
 
     ordered_stages = [
         CandidateStage.NEW,
@@ -417,7 +417,7 @@ async def new_vacancy_page(
         request: Request,
         db: Session = Depends(get_session),
 ):
-    branches = db.exec(select(Branch).order_by(Branch.id)).all()
+    branches = db.exec(select(Branch).order_by(Branch.id)).scalars().all()
     return templates.TemplateResponse(
         request=request,
         name="vacancy_create.html",
@@ -459,7 +459,7 @@ async def create_vacancy_form(
         if branch_obj:
             branch_name = branch_obj.name
     if not branch_obj:
-        branch_obj = db.exec(select(Branch).where(Branch.name == branch_name)).first()
+        branch_obj = db.exec(select(Branch).where(Branch.name == branch_name)).scalars().first()
     if not branch_obj:
         branch_obj = Branch(name=branch_name, address=branch_name)
         db.add(branch_obj)
@@ -570,7 +570,7 @@ async def get_vacancy_candidates(
     if stage:
         statement = statement.where(CandidateApplication.pipeline_stage == stage)
 
-    applications = db.exec(statement).all()
+    applications = db.exec(statement).scalars().all()
 
     candidates = []
     for application in applications:
@@ -783,7 +783,7 @@ async def update_vacancy(
             if branch_obj:
                 branch_name = branch_obj.name
         if not branch_obj:
-            branch_obj = db.exec(select(Branch).where(Branch.name == branch_name)).first()
+            branch_obj = db.exec(select(Branch).where(Branch.name == branch_name)).scalars().first()
         if not branch_obj:
             branch_obj = Branch(name=branch_name, address=branch_name)
             db.add(branch_obj)
@@ -1105,7 +1105,7 @@ async def sync_sheets_endpoint(
 ):
     try:
         # Fetch all candidate applications
-        applications = db.exec(select(CandidateApplication)).all()
+        applications = db.exec(select(CandidateApplication)).scalars().all()
 
         candidates_data = []
         for app in applications:
