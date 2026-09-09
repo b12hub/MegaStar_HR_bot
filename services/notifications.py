@@ -184,7 +184,13 @@ async def notify_branch_pm_on_job_offer(
     return True
 
 
-async def notify_director_on_third_stage(bot: Bot, candidate, vacancy_title: str, meeting_time: datetime):
+async def notify_director_on_third_stage(
+    bot: Bot,
+    candidate_name: str,
+    candidate_phone: str,
+    vacancy_title: str,
+    meeting_time: datetime
+):
     """
     Called when a candidate reaches the 3rd stage meeting phase.
     Routes notification directly to the Director.
@@ -198,8 +204,8 @@ async def notify_director_on_third_stage(bot: Bot, candidate, vacancy_title: str
 
     message_text = (
         f"🌟 <b>Rahbar bilan so'nggi suhbat bosqichi (3-bosqich)!</b>\n\n"
-        f"👤 <b>Nomzod:</b> {candidate.full_name}\n"
-        f"📞 <b>Telefon:</b> {candidate.phone_number}\n"
+        f"👤 <b>Nomzod:</b> {candidate_name}\n"
+        f"📞 <b>Telefon:</b> {candidate_phone}\n"
         f"💼 <b>Vakansiya:</b> {vacancy_title}\n"
         f"🗓 <b>Suhbat vaqti:</b> {time_str}\n\n"
         f"Ushbu nomzod HR va Filial rahbari suhbatlaridan muvaffaqiyatli o'tdi."

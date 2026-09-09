@@ -944,8 +944,6 @@ async def schedule_candidate(
                 branch_name=getattr(payload, "branch_name", None)
             )
 
-
-
     elif payload.stage == "director_offline":
         candidate.pipeline_stage = PipelineStage.DIRECTOR_OFFLINE
         if telegram_id:
@@ -958,12 +956,17 @@ async def schedule_candidate(
                 branch_name=getattr(payload, "branch_name", None)
             )
 
+        # Pre-fetch user and vacancy information safely while DB session is open
+        candidate_name = user.full_name if (user and user.full_name) else f"Nomzod #{candidate_id}"
+        candidate_phone = user.phone_number if (user and user.phone_number) else "Noma'lum"
         vacancy = db.get(Vacancy, candidate.vacancy_id) if candidate.vacancy_id else None
         vacancy_title = vacancy.title if vacancy else "Mutaxassis"
+        # Pass clean primitive variables to the background task
         background_tasks.add_task(
             notify_director_on_third_stage,
             bot=bot,
-            candidate=candidate,
+            candidate_name=candidate_name,
+            candidate_phone=candidate_phone,
             vacancy_title=vacancy_title,
             meeting_time=parsed_dt
         )
