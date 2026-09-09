@@ -12,6 +12,7 @@ from services.zoom_service import create_zoom_meeting
 from services.notifications import (
     notify_candidate_status,
     notify_candidate_job_offer,
+    notify_director_on_third_stage,
     notify_branch_pm_on_job_offer
 )
 from services.llm_evaluator import evaluate_candidate_answers, generate_vacancy_questions
@@ -943,6 +944,7 @@ async def schedule_candidate(
                 branch_name=getattr(payload, "branch_name", None)
             )
 
+
     elif payload.stage == "director_offline":
         candidate.pipeline_stage = PipelineStage.DIRECTOR_OFFLINE
         if telegram_id:
@@ -954,6 +956,16 @@ async def schedule_candidate(
                 meeting_time=meeting_time_str,
                 branch_name=getattr(payload, "branch_name", None)
             )
+
+        vacancy_title = candidate.vacancy.title if candidate.vacancy else "Mutaxassis"
+        background_tasks.add_task(
+            notify_director_on_third_stage,
+            bot=bot,
+            candidate=candidate,
+            vacancy_title=vacancy_title,
+            meeting_time=parsed_dt
+        )
+
     else:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
