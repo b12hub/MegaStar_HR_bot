@@ -286,8 +286,9 @@ async def send_meeting_reminders():
     now = datetime.now(timezone.utc)
     twenty_four_hours_from_now = now + timedelta(hours=24)
 
-    hr_chat_id = os.getenv("HR_CHAT_ID")
-    director_chat_id = os.getenv("DIRECTOR_CHAT_ID")
+    # Use settings to ensure it matches the rest of your configuration
+    hr_chat_id = getattr(settings, "HR_CHAT_ID", None) or os.getenv("HR_CHAT_ID")
+    director_chat_id = getattr(settings, "DIRECTOR_CHAT_ID", None) or os.getenv("DIRECTOR_CHAT_ID")
 
     with Session(engine) as db:
         upcoming_meetings = db.exec(
@@ -470,3 +471,66 @@ async def notify_candidate_job_offer(
     # No background_tasks here — this function is itself already dispatched as
     # a background task from dashboard.py, so it just sends directly.
     await send_tg_notification(telegram_id, message_text)
+
+
+async def notify_hr_meeting_scheduled(
+        bot: Bot,
+        stage_name: str,
+        candidate_name: str,
+        candidate_phone: str,
+        vacancy_title: str,
+        meeting_time: datetime,
+        meeting_link_or_loc: str,
+        branch_name: Optional[str] = None,
+):
+    """
+    Notify HR when a 1st (Online) or 2nd (Offline) stage meeting is scheduled,
+    dynamically formatting Zoom links or offline branch locations just like candidate notifications.
+    """
+    hr_chat_id = getattr(settings, "HR_CHAT_ID", None) or os.getenv("HR_CHAT_ID")
+    if not hr_chat_id:
+        logger.error("Notification failed: HR_CHAT_ID is missing.")
+        return False
+
+    time_str = meeting_time.strftime("%d.%m.%Y %H:%M") if meeting_time else "Tez orada aniqlanadi"
+
+    is_http_link = bool(meeting_link_or_loc and meeting_link_or_loc.startswith("http"))
+
+    if branch_name and branch_name.strip():
+        display_branch = branch_name.strip()
+    elif meeting_link_or_loc and not is_http_link:
+        display_branch = meeting_link_or_loc.strip()
+    else:
+        display_branch = "Izza - Showroom"
+
+    map_url = meeting_link_or_loc if is_http_link else get_branch_map_url(display_branch)
+
+    # Format location/link display block depending on whether it's online or physical
+    if is_http_link:
+        location_section = f"🔗 <b>Ulanish uchun havola:</b> <a href='{meeting_link_or_loc}'>Online Suhbat (Zoom/Meet)</a>"
+    else:
+        location_section = (
+            f"🏢 <b>Manzil:</b> {display_branch}\n"
+            f"📍 <b>Xarita:</b> <a href='{map_url}'>Lokatsiya (Yandex Maps)</a>"
+        )
+
+    message_text = (
+        f"📅 <b>Yangi suhbat belgilandi! ({stage_name})</b>\n\n"
+        f"👤 <b>Nomzod:</b> {candidate_name}\n"
+        f"📞 <b>Telefon:</b> {candidate_phone}\n"
+        f"💼 <b>Vakansiya:</b> {vacancy_title}\n"
+        f"🗓 <b>Suhbat vaqti:</b> {time_str}\n"
+        f"{location_section}\n"
+    )
+
+    try:
+        await bot.send_message(
+            chat_id=int(hr_chat_id),
+            text=message_text,
+            parse_mode="HTML",
+            disable_web_page_preview=True
+        )
+        return True
+    except Exception as e:
+        logger.error(f"Failed to send HR meeting notification: {e}")
+        return False

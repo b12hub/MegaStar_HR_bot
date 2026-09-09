@@ -13,7 +13,8 @@ from services.notifications import (
     notify_candidate_status,
     notify_candidate_job_offer,
     notify_director_on_third_stage,
-    notify_branch_pm_on_job_offer
+    notify_branch_pm_on_job_offer,
+    notify_hr_meeting_scheduled
 )
 from services.llm_evaluator import evaluate_candidate_answers, generate_vacancy_questions
 from services.google_sheets import sync_candidates_to_sheet
@@ -858,6 +859,25 @@ async def delete_vacancy(
             detail=f"Vacancy with id {vacancy_id} not found",
         )
 
+    # Clean up related candidate applications AND their dependent rows first
+    applications = db.exec(
+        select(CandidateApplication).where(CandidateApplication.vacancy_id == vacancy_id)
+    ).all()
+
+    for app in applications:
+        # Prevent secondary IntegrityErrors from Meeting and JobOffer foreign keys
+        meetings = db.exec(select(Meeting).where(Meeting.candidate_id == app.id)).all()
+        for m in meetings:
+            db.delete(m)
+
+        offers = db.exec(select(JobOffer).where(JobOffer.candidate_id == app.id)).all()
+        for o in offers:
+            db.delete(o)
+
+        # Safely delete the parent application
+        db.delete(app)
+
+    # Finally, delete the Vacancy
     db.delete(vacancy)
     db.commit()
 
@@ -898,18 +918,20 @@ async def schedule_candidate(
 
     final_meeting_link = payload.meeting_link
 
+    # Pre-fetch properties globally exactly like the working 3rd stage pattern
+    candidate_name = user.full_name if (user and user.full_name) else f"Nomzod #{candidate_id}"
+    candidate_phone = user.phone_number if (user and user.phone_number) else "Noma'lum"
+    vacancy = db.get(Vacancy, candidate.vacancy_id) if candidate.vacancy_id else None
+    vacancy_title = vacancy.title if vacancy else "Mutaxassis"
+
     if payload.stage == "hr_online":
         candidate.pipeline_stage = PipelineStage.HR_ONLINE
         try:
-            candidate_name = user.full_name if (user and user.full_name) else f"Nomzod #{candidate_id}"
-
-            # Pass parsed_dt directly as datetime object
             zoom_data = await create_zoom_meeting(
                 topic=f"HR Suhbat: {candidate_name}",
                 start_time=parsed_dt
             )
 
-            # Handle both dictionary and string return types
             if isinstance(zoom_data, dict):
                 final_meeting_link = zoom_data.get("join_url") or zoom_data.get("start_url")
             elif isinstance(zoom_data, str):
@@ -932,17 +954,45 @@ async def schedule_candidate(
                 meeting_time=meeting_time_str
             )
 
+        # HR Notification for Online 1st Stage (Passes Zoom Link)
+        background_tasks.add_task(
+            notify_hr_meeting_scheduled,
+            bot=bot,
+            stage_name="1-bosqich (Online HR Suhbat)",
+            candidate_name=candidate_name,
+            candidate_phone=candidate_phone,
+            vacancy_title=vacancy_title,
+            meeting_time=parsed_dt,
+            meeting_link_or_loc=final_meeting_link or "Havola mavjud emas",
+            branch_name=None
+        )
+
     elif payload.stage == "hr_offline":
         candidate.pipeline_stage = PipelineStage.HR_OFFLINE
+        branch_val = getattr(payload, "branch_name", None) or "Izza - Showroom"
+
         if telegram_id:
             background_tasks.add_task(
                 notify_candidate_status,
                 telegram_id=telegram_id,
                 msg_type="accept_2nd_meeting",
-                meeting_link_or_loc=final_meeting_link,
+                meeting_link_or_loc=branch_val,
                 meeting_time=meeting_time_str,
-                branch_name=getattr(payload, "branch_name", None)
+                branch_name=branch_val
             )
+
+        # HR Notification for Offline 2nd Stage (Passes Branch and Map URL generation)
+        background_tasks.add_task(
+            notify_hr_meeting_scheduled,
+            bot=bot,
+            stage_name="2-bosqich (Oflayn HR Suhbat)",
+            candidate_name=candidate_name,
+            candidate_phone=candidate_phone,
+            vacancy_title=vacancy_title,
+            meeting_time=parsed_dt,
+            meeting_link_or_loc=branch_val,
+            branch_name=branch_val
+        )
 
     elif payload.stage == "director_offline":
         candidate.pipeline_stage = PipelineStage.DIRECTOR_OFFLINE
@@ -956,12 +1006,7 @@ async def schedule_candidate(
                 branch_name=getattr(payload, "branch_name", None)
             )
 
-        # Pre-fetch user and vacancy information safely while DB session is open
-        candidate_name = user.full_name if (user and user.full_name) else f"Nomzod #{candidate_id}"
-        candidate_phone = user.phone_number if (user and user.phone_number) else "Noma'lum"
-        vacancy = db.get(Vacancy, candidate.vacancy_id) if candidate.vacancy_id else None
-        vacancy_title = vacancy.title if vacancy else "Mutaxassis"
-        # Pass clean primitive variables to the background task
+        # Trigger notification for 3rd stage using pre-fetched details
         background_tasks.add_task(
             notify_director_on_third_stage,
             bot=bot,
